@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Database
+*.db
+*.sqlite3
+
+# Virtual environment
+.venv/
+venv/
+
+# Config with secrets
+config.yaml
