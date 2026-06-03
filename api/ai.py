@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -13,6 +14,7 @@ from database import get_db
 from models import AdminUser
 from api.dependencies import verify_service_access, deduct_token_quota
 from services import ai_service
+from services.generation_logger import log_generation
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -422,7 +424,9 @@ async def process_text(request: AIRequest, db: Session = Depends(get_db), curren
 
     prompt = prompts.get(request.mode, f"请处理以下文本：\n\n{request.text}")
 
+    t0 = time.time()
     ai_response = await ai_service.chat_completion([{"role": "user", "content": prompt}])
+    duration_ms = int((time.time() - t0) * 1000)
     result = ai_response["content"]
 
     # Post-process: clean up any AI preamble/ending that might have slipped through
@@ -452,6 +456,18 @@ async def process_text(request: AIRequest, db: Session = Depends(get_db), curren
                     if token_record and ai_response.get("total_tokens", 0) > 0:
                         deduct_token_quota(db, token_record.id, ai_response["total_tokens"])
 
+                    log_generation(
+                        db, mode=request.mode,
+                        token_id=token_record.id if token_record else None,
+                        input_text=request.text,
+                        final_prompt=prompt, model_response=result,
+                        output_content=final_result,
+                        model=ai_service.model,
+                        prompt_tokens=ai_response.get("prompt_tokens", 0),
+                        completion_tokens=ai_response.get("completion_tokens", 0),
+                        total_tokens=ai_response.get("total_tokens", 0),
+                        duration_ms=duration_ms, status="success",
+                    )
                     return {"result": final_result}
             except json.JSONDecodeError:
                 # If JSON parsing fails, fall through to normal processing
@@ -470,6 +486,18 @@ async def process_text(request: AIRequest, db: Session = Depends(get_db), curren
         if token_record and ai_response.get("total_tokens", 0) > 0:
             deduct_token_quota(db, token_record.id, ai_response["total_tokens"])
 
+        log_generation(
+            db, mode=request.mode,
+            token_id=token_record.id if token_record else None,
+            input_text=request.text,
+            final_prompt=prompt, model_response=result,
+            output_content=final_result,
+            model=ai_service.model,
+            prompt_tokens=ai_response.get("prompt_tokens", 0),
+            completion_tokens=ai_response.get("completion_tokens", 0),
+            total_tokens=ai_response.get("total_tokens", 0),
+            duration_ms=duration_ms, status="success",
+        )
         return {"result": final_result}
 
     # For other modes, use the original cleanup logic
@@ -523,4 +551,16 @@ async def process_text(request: AIRequest, db: Session = Depends(get_db), curren
     if token_record and ai_response.get("total_tokens", 0) > 0:
         deduct_token_quota(db, token_record.id, ai_response["total_tokens"])
 
+    log_generation(
+        db, mode=request.mode,
+        token_id=token_record.id if token_record else None,
+        input_text=request.text,
+        final_prompt=prompt, model_response=result,
+        output_content=final_result,
+        model=ai_service.model,
+        prompt_tokens=ai_response.get("prompt_tokens", 0),
+        completion_tokens=ai_response.get("completion_tokens", 0),
+        total_tokens=ai_response.get("total_tokens", 0),
+        duration_ms=duration_ms, status="success",
+    )
     return {"result": final_result}

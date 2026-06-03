@@ -18,3 +18,7 @@ venv/
 
 # Config with secrets
 config.yaml
+
+# claude
+.claude/
+claude/
