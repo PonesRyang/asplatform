@@ -15,15 +15,13 @@ export async function searchLiterature(
 export async function extractLitFiles(files: File[]): Promise<DocumentItem[]> {
   const formData = new FormData()
   files.forEach((file) => formData.append('files', file))
-  const response = await api.post<DocumentItem[]>('/api/lit-compare/extract', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-  return response.data
+  const response = await api.post<{ documents: DocumentItem[] }>('/api/lit-compare/extract', formData)
+  return response.data.documents
 }
 
 export async function compareLiterature(documents: DocumentItem[]): Promise<Record<string, unknown>> {
   const data: LitCompareRequest = { documents }
-  const response = await api.post<Record<string, unknown>>('/api/lit-compare/compare', data)
+  const response = await api.post<Record<string, unknown>>('/api/lit-compare/analyze', data)
   return response.data
 }
 

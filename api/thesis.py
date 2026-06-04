@@ -78,18 +78,14 @@ async def upload_and_verify_references(
     discipline: Optional[str] = Form(None),
     keywords: Optional[str] = Form(None),
     style_example_idx: Optional[int] = Form(None),
+    project_id: Optional[str] = Form(None),
+    token: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: Optional[AdminUser] = Depends(get_optional_admin)
 ):
-    """上传文献文件（PDF/Word），验证真实性并检查与研究主题的相关性
-
-    Args:
-        skip_verification_indices: 逗号分隔的索引列表，指定跳过验证的文件
-        topic: 研究主题/研究方向
-        discipline: 所属学科
-        keywords: 关键词（逗号分隔）
-        style_example_idx: 指定作为学术范例的文件索引
-    """
+    """上传文献文件（PDF/Word），验证真实性并检查与研究主题的相关性"""
+    import logging
+    logging.warning(f"[UPLOAD] files={len(files)} token={token[:8] if token else None} project_id={project_id}")
     if not current_user:
         # Allow unauthenticated access with token if needed
         pass

@@ -72,10 +72,8 @@ export async function exportThesis(projectId: number, token: string): Promise<Bl
   return response.data
 }
 
-export async function uploadReferences(formData: FormData): Promise<{ count: number; items: unknown[] }> {
-  const response = await api.post<{ count: number; items: unknown[] }>('/api/ai/thesis/references/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+export async function uploadReferences(formData: FormData): Promise<any> {
+  const response = await api.post<any>('/api/ai/thesis/references/upload', formData)
   return response.data
 }
 

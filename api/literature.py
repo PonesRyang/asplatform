@@ -235,8 +235,8 @@ async def lit_compare_extract(
     current_user: Optional[AdminUser] = Depends(get_optional_admin)
 ):
     """Extract text from uploaded literature files."""
-    if len(files) < 2 or len(files) > 3:
-        raise HTTPException(status_code=400, detail="Please upload 2-3 files")
+    if len(files) < 1 or len(files) > 5:
+        raise HTTPException(status_code=400, detail="请上传 1-5 个文件")
 
     documents = []
     for file in files:

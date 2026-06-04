@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState, type FC } from 'react';
+import { useState, useRef, type FC } from 'react';
 import {
   Upload,
   Button,
@@ -57,6 +57,7 @@ const ReferenceUpload: FC<ReferenceUploadProps> = ({
   onReferencesVerified,
 }) => {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const rawFilesRef = useRef<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [verifiedRefs, setVerifiedRefs] = useState<VerifiedReference[]>([]);
@@ -77,11 +78,12 @@ const ReferenceUpload: FC<ReferenceUploadProps> = ({
       formData.append('project_id', String(projectId));
       formData.append('token', serviceToken);
 
-      fileList.forEach((file) => {
-        if (file.originFileObj) {
-          formData.append('files', file.originFileObj as RcFile);
-        }
-      });
+      if (rawFilesRef.current.length === 0) {
+        message.error('无法读取文件，请重新选择');
+        setUploading(false);
+        return;
+      }
+      rawFilesRef.current.forEach((f) => formData.append('files', f));
 
       // Simulate progress since uploadFiles doesn't expose onUploadProgress
       const progressTimer = setInterval(() => {
@@ -98,32 +100,21 @@ const ReferenceUpload: FC<ReferenceUploadProps> = ({
       clearInterval(progressTimer);
       setUploadProgress(100);
 
-      // Parse result items
-      const items = (result.items ?? []) as Record<string, unknown>[];
-      const verified: VerifiedReference[] = [];
-      const failed: FailedReference[] = [];
-
-      items.forEach((item: Record<string, unknown>) => {
-        if (item.is_validated) {
-          verified.push(item as unknown as VerifiedReference);
-        } else {
-          failed.push({
-            fileName: (item.title as string) ?? '未知文件',
-            reason:
-              (item.validation_errors as string) ?? '验证失败，原因未知',
-          });
-        }
-      });
+      const verified = (result.verified ?? []) as VerifiedReference[];
+      const failed = (result.failed ?? []) as FailedReference[];
 
       setVerifiedRefs(verified);
-      setFailedRefs(failed);
+      setFailedRefs(failed.map((f: any) => ({ fileName: f.filename || '未知', reason: f.reason || '未知原因' })));
       setUploadDone(true);
 
       if (verified.length > 0) {
-        message.success(`成功上传并验证 ${verified.length} 篇参考文献`);
+        message.success(`成功验证 ${verified.length} 篇文献`);
       }
       if (failed.length > 0) {
-        message.warning(`${failed.length} 个文件验证失败`);
+        failed.forEach((f: any) => message.warning(`${f.filename || '文件'}: ${f.reason || '验证失败'}`));
+      }
+      if (verified.length === 0 && failed.length === 0) {
+        message.info('上传完成但无返回结果');
       }
     } catch (err) {
       const msg =
@@ -148,8 +139,11 @@ const ReferenceUpload: FC<ReferenceUploadProps> = ({
     const isAllowed = allowedTypes.includes(file.type);
     if (!isAllowed) {
       message.error('仅支持 PDF、DOCX、DOC 格式文件');
+      return Upload.LIST_IGNORE;
     }
-    return isAllowed || Upload.LIST_IGNORE;
+    // Store raw file for manual upload
+    rawFilesRef.current = [...rawFilesRef.current.filter(f => f.name !== file.name && f.size !== file.size), file];
+    return false; // Prevent auto-upload
   };
 
   return (
@@ -167,7 +161,10 @@ const ReferenceUpload: FC<ReferenceUploadProps> = ({
           <Dragger
             multiple
             fileList={fileList}
-            onChange={({ fileList: newList }) => setFileList(newList)}
+            onChange={({ fileList: newList }) => {
+              setFileList(newList);
+              if (newList.length === 0) rawFilesRef.current = [];
+            }}
             beforeUpload={handleBeforeUpload}
             accept=".pdf,.docx,.doc"
             disabled={uploading}

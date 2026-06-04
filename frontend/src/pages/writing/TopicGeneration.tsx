@@ -93,6 +93,35 @@ const TopicGeneration: FC<TopicGenerationProps> = ({ serviceToken, onTopicSelect
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState('');
   const [createForm] = Form.useForm();
+  const [quickTitle, setQuickTitle] = useState('');
+  const [quickDiscipline, setQuickDiscipline] = useState('');
+  const [quickCreating, setQuickCreating] = useState(false);
+  const [quickForm] = Form.useForm();
+
+  // -------------------------------------------------------------------------
+  // Quick Start — direct title to article
+  // -------------------------------------------------------------------------
+  const handleQuickStart = async (): Promise<void> => {
+    const title = quickForm.getFieldValue('title')?.trim();
+    if (!title) { message.warning('请输入论文题目'); return; }
+    setQuickCreating(true);
+    try {
+      const project: any = await createAndOutline({
+        token: serviceToken,
+        topic_title: title,
+        discipline: quickForm.getFieldValue('discipline') || '',
+        language: quickForm.getFieldValue('language') || 'zh',
+        length: quickForm.getFieldValue('length') || 'Standard (5000 words)',
+        thesis_type: quickForm.getFieldValue('thesis_type') || 'Original Research',
+      });
+      message.success('文章已创建，开始生成提纲');
+      onTopicSelected(project);
+    } catch (err: any) {
+      message.error(err?.message || '创建失败');
+    } finally {
+      setQuickCreating(false);
+    }
+  };
 
   // -------------------------------------------------------------------------
   // Generate topics
@@ -344,6 +373,52 @@ const TopicGeneration: FC<TopicGenerationProps> = ({ serviceToken, onTopicSelect
   // -------------------------------------------------------------------------
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+      {/* ---- Quick Start — direct title to article ---- */}
+      <Card
+        title={<Space><ThunderboltOutlined style={{ color: '#52c41a' }} /><span>快速开始</span></Space>}
+        style={{ marginBottom: 24, border: '1px solid #b7eb8f' }}
+      >
+        <Form form={quickForm} layout="vertical"
+          initialValues={{ language: 'zh', length: 'Standard (5000 words)', thesis_type: 'Original Research' }}>
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item name="title" label="论文题目" rules={[{ required: true, message: '请输入题目' }]}>
+                <Input placeholder="输入您的论文题目，直接开始生成" size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={6}>
+              <Form.Item name="discipline" label="学科领域">
+                <Select placeholder="选择学科" showSearch optionFilterProp="label"
+                  options={DISCIPLINES.map((d: any) => ({ value: d.value, label: d.label }))} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={6}>
+              <Form.Item name="language" label="语言">
+                <Select options={LANGUAGES.map((l: any) => ({ value: l.value, label: l.label }))} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col xs={24} sm={8}>
+              <Form.Item name="thesis_type" label="论文类型">
+                <Select options={THESIS_TYPES.map((t: any) => ({ value: t.value, label: t.label }))} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Form.Item name="length" label="篇幅">
+                <Select options={LENGTH_OPTIONS.map((l: any) => ({ value: l.value, label: l.label }))} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8} style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 24 }}>
+              <Button type="primary" size="large" icon={<ThunderboltOutlined />}
+                onClick={handleQuickStart} loading={quickCreating} block>
+                直接生成
+              </Button>
+            </Col>
+          </Row>
+        </Form>
+      </Card>
+
       {/* ---- Generation Form ---- */}
       <Card
         title={
