@@ -1,649 +1,297 @@
 // @ts-nocheck
-import { useState, useEffect, useRef, useCallback, type FC } from 'react';
+import { useState, useEffect, useCallback, useRef, type FC } from 'react';
 import {
-  Button,
-  Typography,
-  Space,
-  message,
-  Empty,
-  Collapse,
-  Divider,
-  Tag,
+  Card, Button, Typography, Space, Tag, message, Spin, Empty, Select, Input, InputNumber,
 } from 'antd';
 import {
-  ArrowLeftOutlined,
-  DownloadOutlined,
-  SaveOutlined,
-  BulbOutlined,
+  FileTextOutlined, SaveOutlined, DownloadOutlined,
+  ArrowLeftOutlined, BulbOutlined, SendOutlined, CopyOutlined, ClearOutlined,
 } from '@ant-design/icons';
-import type { ThesisProject, ThesisStep, ThesisFullTextRequest, AIProcessRequest } from '../../types/thesis';
-import {
-  getProjectSteps,
-  generateFulltext,
-  saveFulltext,
-  exportThesis,
-} from '../../services/thesisApi';
+import type { ThesisProject, ThesisStep, ThesisFullTextRequest } from '../../types/thesis';
+import { getProjectSteps, generateFulltext, saveFulltext, exportThesis } from '../../services/thesisApi';
 import { processText } from '../../services/aiApi';
-import AIOperationsToolbar, {
-  type AIOperationOptions,
-} from './AIOperationsToolbar';
-import AIEditModal from './AIEditModal';
-import type { AIProcessResponse } from '../../types/thesis';
+import { useServiceToken } from '../../hooks/useServiceToken';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 const { Text, Title, Paragraph } = Typography;
+const { TextArea } = Input;
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-interface FullTextGenerationProps {
+// ── AI Tool definitions (same as AITools page) ──
+const AI_TOOLS = [
+  { key: 'polish', label: '学术润色', icon: '✨', desc: '提升语言专业性、准确性和流畅度',
+    opts: [{ k: 'intensity', label: '强度', choices: ['conservative:保守', 'standard:标准', 'deep:深度'], def: 'standard' },
+           { k: 'style', label: '风格', choices: ['academic:通用学术', 'journal:国际期刊', 'thesis:学位论文'], def: 'academic' }] },
+  { key: 'translate', label: '中英互译', icon: '🌐', desc: '学术翻译，自动识别源语言',
+    opts: [{ k: 'direction', label: '方向', choices: ['auto:自动', 'zh2en:中→英', 'en2zh:英→中'], def: 'auto' }] },
+  { key: 'grammar', label: '语法检查', icon: '📝', desc: '纠正语法和拼写错误',
+    opts: [{ k: 'level', label: '级别', choices: ['basic:基础', 'detailed:详细'], def: 'detailed' }] },
+  { key: 'proofread', label: '终极校对', icon: '🔍', desc: '语法+逻辑+引用四维审查', opts: [] },
+  { key: 'reduce_similarity', label: '论文降重', icon: '📉', desc: '句式重构降低重复率', opts: [] },
+  { key: 'rewrite', label: '改写重述', icon: '✍️', desc: '全新表达呈现相同内容',
+    opts: [{ k: 'intensity', label: '强度', choices: ['light:轻度', 'medium:中度', 'deep:深度'], def: 'medium' }] },
+  { key: 'expand', label: '内容扩写', icon: '📈', desc: '扩展论述深度和广度',
+    opts: [{ k: 'expand_direction', label: '方向', choices: ['theory:理论', 'methods:方法', 'data:数据', 'comprehensive:综合'], def: 'comprehensive' },
+           { k: 'target_multiplier', label: '倍数', type: 'num', def: 2, min: 1.5, max: 5, step: 0.5 }] },
+  { key: 'shorten', label: '缩写精简', icon: '📋', desc: '去冗余保核心', opts: [] },
+  { key: 'style_change', label: '文风调整', icon: '🎨', desc: '调整写作风格语调', opts: [] },
+  { key: 'abstract', label: '生成摘要', icon: '📄', desc: '提炼结构化摘要',
+    opts: [{ k: 'format', label: '格式', choices: ['structured:结构化', 'unstructured:非结构化'], def: 'structured' },
+           { k: 'word_count', label: '字数', type: 'num', def: 300, min: 100, max: 1000, step: 50 }] },
+];
+
+interface Props {
   project: ThesisProject;
   outline: string;
   serviceToken: string;
   onBack: () => void;
 }
 
-interface OutlineSection {
-  key: string;
-  title: string;
-  level: number;
-  children: OutlineSection[];
-  content: string;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function parseMarkdownOutline(markdown: string): OutlineSection[] {
-  const lines = markdown.split('\n');
-  const sections: OutlineSection[] = [];
-  let currentSection: OutlineSection | null = null;
-  let currentH2: OutlineSection | null = null;
-  let contentBuffer: string[] = [];
-
-  const flushContent = (target: OutlineSection) => {
-    const text = contentBuffer.join('\n').trim();
-    if (text) target.content = text;
-    contentBuffer = [];
-  };
-
-  for (const line of lines) {
-    const h1Match = line.match(/^#\s+(.+)/);
-    const h2Match = line.match(/^##\s+(.+)/);
-    const h3Match = line.match(/^###\s+(.+)/);
-
-    if (h1Match) {
-      if (currentH2) { flushContent(currentH2); currentH2 = null; }
-      else if (currentSection) flushContent(currentSection);
-      currentSection = { key: `sec-${sections.length}`, title: h1Match[1].trim(), level: 1, children: [], content: '' };
-      sections.push(currentSection);
-    } else if (h2Match) {
-      if (currentH2) flushContent(currentH2);
-      const child: OutlineSection = { key: `h2-${currentSection?.children.length ?? 0}`, title: h2Match[1].trim(), level: 2, children: [], content: '' };
-      if (currentSection) { currentSection.children.push(child); currentH2 = child; }
-      else { currentSection = { key: `sec-${sections.length}`, title: child.title, level: 1, children: [], content: '' }; sections.push(currentSection); }
-    } else if (h3Match) {
-      if (currentH2) flushContent(currentH2);
-      const sub: OutlineSection = { key: `h3-${currentH2?.children.length ?? 0}`, title: h3Match[1].trim(), level: 3, children: [], content: '' };
-      if (currentH2) currentH2.children.push(sub);
-      else if (currentSection) currentSection.children.push(sub);
-      currentH2 = null;
-    } else {
-      contentBuffer.push(line);
-    }
-  }
-
-  if (currentH2) flushContent(currentH2);
-  else if (currentSection) flushContent(currentSection);
-  return sections;
-}
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-const FullTextGeneration: FC<FullTextGenerationProps> = ({
-  project,
-  outline,
-  serviceToken,
-  onBack,
-}) => {
+const FullTextGeneration: FC<Props> = ({ project, outline, serviceToken, onBack }) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // State
   const [loading, setLoading] = useState(true);
-  const [steps, setSteps] = useState<ThesisStep[]>([]);
   const [fullText, setFullText] = useState('');
   const [generating, setGenerating] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  // AI operations state
-  const [selectedText, setSelectedText] = useState('');
+  // AI tool state
+  const [selectedTool, setSelectedTool] = useState<string>('polish');
+  const [aiInput, setAiInput] = useState('');
+  const [aiResult, setAiResult] = useState('');
+  const [aiChanges, setAiChanges] = useState<any[]>([]);
+  const [aiExplanation, setAiExplanation] = useState('');
   const [aiProcessing, setAiProcessing] = useState(false);
-  const [aiResult, setAiResult] = useState<AIProcessResponse | null>(null);
-  const [aiModalOpen, setAiModalOpen] = useState(false);
-  const [aiOriginalText, setAiOriginalText] = useState('');
+  const [aiOptions, setAiOptions] = useState<Record<string, any>>({});
 
-  // -------------------------------------------------------------------------
-  // Load project steps to find existing fulltext
-  // -------------------------------------------------------------------------
-  const loadSteps = useCallback(async (): Promise<void> => {
+  const [selectedText, setSelectedText] = useState('');
+
+  const currentTool = AI_TOOLS.find(t => t.key === selectedTool)!;
+
+  // Load existing fulltext
+  const loadSteps = useCallback(async () => {
     if (!project.id) return;
     setLoading(true);
     try {
       const data = await getProjectSteps(project.id, serviceToken);
-      setSteps(data);
-
-      const fulltextStep = data.find((s: any) => s.step_num === 2);
-      if (fulltextStep?.content) {
-        setFullText(fulltextStep.content);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '加载项目数据失败';
-      message.error(msg);
-    } finally {
-      setLoading(false);
-    }
+      const ft = data.find((s: any) => s.step_num === 2);
+      if (ft?.content) setFullText(ft.content);
+    } catch (err: any) { message.error(err?.message || '加载失败'); }
+    finally { setLoading(false); }
   }, [project.id, serviceToken]);
 
-  useEffect(() => {
-    loadSteps();
-  }, [loadSteps]);
+  useEffect(() => { loadSteps(); }, [loadSteps]);
 
-  // -------------------------------------------------------------------------
-  // Text selection listener
-  // -------------------------------------------------------------------------
+  // Text selection tracking
   useEffect(() => {
-    const handleSelectionChange = (): void => {
-      const selection = window.getSelection();
-      if (!selection || selection.rangeCount === 0) {
-        return;
-      }
-
-      // Only track selection within our content area
-      if (contentRef.current) {
-        const range = selection.getRangeAt(0);
-        if (contentRef.current.contains(range.commonAncestorContainer)) {
-          setSelectedText(selection.toString().trim());
-        }
+    const h = () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && contentRef.current?.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+        setSelectedText(sel.toString().trim());
       }
     };
-
-    document.addEventListener('selectionchange', handleSelectionChange);
-    return () =>
-      document.removeEventListener('selectionchange', handleSelectionChange);
+    document.addEventListener('selectionchange', h);
+    return () => document.removeEventListener('selectionchange', h);
   }, []);
 
-  // -------------------------------------------------------------------------
-  // Generate full text
-  // -------------------------------------------------------------------------
-  const handleGenerate = async (): Promise<void> => {
+  // Tool selection — set default options
+  const handleToolSelect = (key: string) => {
+    setSelectedTool(key);
+    const tool = AI_TOOLS.find(t => t.key === key)!;
+    const defs: Record<string, any> = {};
+    tool.opts.forEach(o => { defs[o.k] = o.def; });
+    setAiOptions(defs);
+    setAiResult('');
+    setAiChanges([]);
+    setAiExplanation('');
+    // Auto-fill: selected text or fallback
+    setAiInput(selectedText || '');
+  };
+
+  // Generate fulltext
+  const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const request: ThesisFullTextRequest = {
-        project_id: project.id,
-        token: serviceToken,
-        outline: outline,
-        references: [],
-      };
-
-      const result = await generateFulltext(request);
+      const result = await generateFulltext({ project_id: project.id, token: serviceToken, outline, references: [] } as any);
       setFullText(result.fulltext);
       message.success('全文生成成功！');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '生成全文失败';
-      message.error(msg);
-    } finally {
-      setGenerating(false);
-    }
+    } catch (err: any) { message.error(err?.message || '生成失败'); }
+    finally { setGenerating(false); }
   };
 
-  // -------------------------------------------------------------------------
-  // Save fulltext
-  // -------------------------------------------------------------------------
-  const handleSave = async (): Promise<void> => {
+  // Save
+  const handleSave = async () => {
     setSaving(true);
     try {
-      await saveFulltext({
-        project_id: project.id,
-        token: serviceToken,
-        full_text: fullText,
-      });
-      message.success('全文已保存');
-      await loadSteps();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '保存失败';
-      message.error(msg);
-    } finally {
-      setSaving(false);
-    }
+      await saveFulltext({ project_id: project.id, token: serviceToken, content: fullText });
+      message.success('已保存');
+    } catch (err: any) { message.error(err?.message || '保存失败'); }
+    finally { setSaving(false); }
   };
 
-  // -------------------------------------------------------------------------
-  // Export thesis
-  // -------------------------------------------------------------------------
-  const handleExport = async (): Promise<void> => {
+  // Export
+  const handleExport = async () => {
     setExporting(true);
     try {
       const blob = await exportThesis(project.id, serviceToken);
-
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${project.title ?? '论文'}.docx`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      message.success('论文已导出为 Word 文档');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '导出失败';
-      message.error(msg);
-    } finally {
-      setExporting(false);
-    }
+      const a = document.createElement('a'); a.href = url; a.download = `${project.title || '论文'}.docx`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url);
+      message.success('已导出');
+    } catch (err: any) { message.error(err?.message || '导出失败'); }
+    finally { setExporting(false); }
   };
 
-  // -------------------------------------------------------------------------
-  // AI Operation: trigger from toolbar
-  // -------------------------------------------------------------------------
-  const handleAIOperation = async (
-    mode: string,
-    options: AIOperationOptions,
-  ): Promise<void> => {
-    const textToProcess = selectedText || fullText;
-
-    if (!textToProcess) {
-      message.warning('请先选择要处理的文本，或等待全文生成后再操作');
-      return;
-    }
-
-    setAiOriginalText(textToProcess);
+  // Run AI tool
+  const handleRunTool = async () => {
+    const text = selectedText || aiInput;
+    if (!text.trim()) { message.warning('请选中正文文本，或在左侧工具面板输入'); return; }
     setAiProcessing(true);
-    setAiModalOpen(true);
-    setAiResult(null);
-
+    setAiResult('');
     try {
-      // Build instructions from options
-      const instructionParts: string[] = [];
-      if (options.intensity)
-        instructionParts.push(`强度：${options.intensity}`);
-      if (options.style)
-        instructionParts.push(`风格：${options.style}`);
-      if (options.direction)
-        instructionParts.push(`方向：${options.direction}`);
-      if (options.level)
-        instructionParts.push(`级别：${options.level}`);
-      if (options.target_multiplier)
-        instructionParts.push(
-          `扩写倍数：${options.target_multiplier}`,
-        );
-      if (options.format)
-        instructionParts.push(`格式：${options.format}`);
-      if (options.word_count)
-        instructionParts.push(`字数：${options.word_count}`);
-
-      const request: AIProcessRequest = {
-        token: serviceToken,
-        text: textToProcess,
-        mode,
-        instructions:
-          instructionParts.length > 0
-            ? instructionParts.join('；')
-            : undefined,
-        discipline: project.discipline,
-        thesis_type: project.thesis_type,
-        language: project.language,
-      };
-
-      const result = await processText(request);
-      setAiResult(result);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'AI 处理失败';
-      message.error(msg);
-      setAiModalOpen(false);
-    } finally {
-      setAiProcessing(false);
-    }
+      const extra: any = {};
+      for (const o of currentTool.opts) {
+        const v = aiOptions[o.k] ?? o.def;
+        if (v !== undefined && v !== '') extra[o.k] = v;
+      }
+      const resp: any = await processText({ text, mode: selectedTool, token: serviceToken, ...extra } as any);
+      try {
+        const parsed = JSON.parse(resp.result || resp);
+        setAiResult(parsed.replacement_text || '');
+        setAiChanges(parsed.changes || []);
+        setAiExplanation(parsed.explanation || '');
+      } catch {
+        setAiResult(typeof resp === 'string' ? resp : resp.result || JSON.stringify(resp));
+      }
+    } catch (err: any) { message.error(err?.message || '处理失败'); }
+    finally { setAiProcessing(false); }
   };
 
-  // -------------------------------------------------------------------------
-  // Accept AI result
-  // -------------------------------------------------------------------------
-  const handleAcceptAIResult = (resultText: string): void => {
-    if (selectedText) {
-      // Replace selected text within full text
-      const newFullText = fullText.replace(selectedText, resultText);
-      setFullText(newFullText);
-    } else {
-      setFullText(resultText);
+  // Accept AI result → replace selected text in fulltext
+  const handleAccept = () => {
+    if (!aiResult) return;
+    if (selectedText && fullText.includes(selectedText)) {
+      setFullText(fullText.replace(selectedText, aiResult));
     }
-    setAiModalOpen(false);
-    setAiResult(null);
     setSelectedText('');
-    message.success('修改已应用');
+    setAiInput('');
+    setAiResult('');
+    setAiChanges([]);
+    setAiExplanation('');
+    message.success('已应用到正文');
   };
 
-  // -------------------------------------------------------------------------
-  // Render markdown-like text
-  // -------------------------------------------------------------------------
-  const renderMarkdownText = (text: string): React.ReactNode => {
-    if (!text) return <Empty description="暂无内容" />;
+  if (loading) return <LoadingSpinner tip="加载项目数据..." />;
 
-    return text.split('\n').map((line, idx) => {
-      if (line.startsWith('# ')) {
-        return (
-          <Title key={idx} level={2} style={{ marginTop: 24 }}>
-            {line.replace(/^#\s+/, '')}
-          </Title>
-        );
-      }
-      if (line.startsWith('## ')) {
-        return (
-          <Title key={idx} level={3} style={{ marginTop: 20 }}>
-            {line.replace(/^##\s+/, '')}
-          </Title>
-        );
-      }
-      if (line.startsWith('### ')) {
-        return (
-          <Title key={idx} level={4} style={{ marginTop: 16 }}>
-            {line.replace(/^###\s+/, '')}
-          </Title>
-        );
-      }
-      if (line.trim() === '') {
-        return <br key={idx} />;
-      }
+  return (
+    <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 160px)' }}>
+      {/* ═══ LEFT: AI Tools Panel ═══ */}
+      <div style={{ width: 320, flexShrink: 0, overflowY: 'auto', borderRight: '1px solid #f0f0f0', paddingRight: 12 }}>
+        {/* Back button */}
+        <Button icon={<ArrowLeftOutlined />} onClick={onBack} style={{ marginBottom: 12 }}>返回修改提纲</Button>
 
-      // Render inline bold and italic
-      const html = line
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>');
-
-      return (
-        <Paragraph
-          key={idx}
-          style={{
-            lineHeight: 1.9,
-            marginBottom: 8,
-          }}
-        >
-          <span dangerouslySetInnerHTML={{ __html: html }} />
-        </Paragraph>
-      );
-    });
-  };
-
-  // -------------------------------------------------------------------------
-  // Render outline sidebar
-  // -------------------------------------------------------------------------
-  const outlineSections = parseMarkdownOutline(outline);
-
-  const renderOutlineSidebar = (): React.ReactNode => {
-    if (outlineSections.length === 0) {
-      return (
-        <div>
-          <Text type="secondary">无提纲结构</Text>
+        {/* Tool selector */}
+        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>AI 工具</Text>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
+          {AI_TOOLS.map(t => (
+            <Tag.CheckableTag key={t.key} checked={selectedTool === t.key}
+              onChange={() => handleToolSelect(t.key)}
+              style={{ fontSize: 11, padding: '2px 8px', margin: 0, borderRadius: 4,
+                background: selectedTool === t.key ? '#1a1a2e' : '#f5f5f5',
+                color: selectedTool === t.key ? '#fff' : '#666', border: 'none' }}>
+              {t.icon} {t.label}
+            </Tag.CheckableTag>
+          ))}
         </div>
-      );
-    }
 
-    // Skip title section (first h1) — show it as header
-    const [titleSection, ...bodySections] = outlineSections;
+        <Text type="secondary" style={{ fontSize: 11 }}>{currentTool.desc}</Text>
 
-    return (
-      <div>
-        {/* Paper title header */}
-        {titleSection && (
-          <div style={{ textAlign: 'center', padding: '0 0 12px', borderBottom: '1px solid #f0f0f0', marginBottom: 8 }}>
-            <Text strong style={{ fontSize: 13 }}>{titleSection.title}</Text>
+        {/* Tool options */}
+        {currentTool.opts.length > 0 && (
+          <div style={{ margin: '8px 0' }}>
+            {currentTool.opts.map(o => (
+              <div key={o.k} style={{ marginBottom: 6 }}>
+                <Text style={{ fontSize: 11, color: '#888', display: 'block' }}>{o.label}</Text>
+                {o.type === 'num' ? (
+                  <InputNumber size="small" value={aiOptions[o.k] ?? o.def}
+                    onChange={v => setAiOptions(p => ({ ...p, [o.k]: v }))}
+                    min={o.min} max={o.max} step={o.step} style={{ width: '100%' }} />
+                ) : (
+                  <Select size="small" value={aiOptions[o.k] ?? o.def}
+                    onChange={v => setAiOptions(p => ({ ...p, [o.k]: v }))}
+                    options={o.choices?.map((c: string) => { const [v, l] = c.split(':'); return { value: v, label: l }; }) || []}
+                    style={{ width: '100%' }} />
+                )}
+              </div>
+            ))}
           </div>
         )}
-        <Collapse
-          size="small"
-          defaultActiveKey={bodySections.map((s) => s.key)}
-          items={bodySections.map((section) => ({
-            key: section.key,
-            label: (
-              <Text strong style={{ fontSize: 12 }}>{section.title}</Text>
-            ),
-            children: (
-              <div style={{ paddingLeft: 4 }}>
-                {section.content && (
-                  <Paragraph style={{ fontSize: 11, color: '#888', marginBottom: 8, whiteSpace: 'pre-wrap' }}
-                    ellipsis={{ rows: 3 }}>
-                    {section.content}
-                  </Paragraph>
-                )}
-                {section.children.map((child) => (
-                  <div key={child.key} style={{
-                    marginBottom: 6, paddingLeft: 8,
-                    borderLeft: '2px solid #e8e8e8',
-                  }}>
-                    <Text style={{ fontSize: 11, color: '#555' }}>{child.title}</Text>
-                    {child.content && (
-                      <Paragraph style={{ fontSize: 10, color: '#999', margin: '2px 0 0', whiteSpace: 'pre-wrap' }}
-                        ellipsis={{ rows: 2 }}>
-                        {child.content}
-                      </Paragraph>
-                    )}
-                    {child.children.length > 0 && (
-                      <div style={{ paddingLeft: 8 }}>
-                        {child.children.map((sub) => (
-                          <div key={sub.key} style={{ marginTop: 2 }}>
-                            <Text style={{ fontSize: 10, color: '#999' }}>- {sub.title}</Text>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+
+        {/* Input area */}
+        <TextArea rows={4} value={aiInput} onChange={e => setAiInput(e.target.value)}
+          placeholder={selectedText ? `已选中 ${selectedText.length} 字` : '输入要处理的文本，或直接在正文中选中...'}
+          style={{ fontSize: 12, marginBottom: 8 }} />
+
+        {/* Run + Accept */}
+        <Space style={{ marginBottom: 12 }}>
+          <Button type="primary" size="small" icon={<SendOutlined />} loading={aiProcessing} onClick={handleRunTool}>处理</Button>
+          {aiResult && <Button size="small" onClick={handleAccept}>应用到正文</Button>}
+        </Space>
+
+        {/* AI Result */}
+        {aiProcessing && <Spin size="small" style={{ display: 'block', margin: '12px 0' }} />}
+        {aiResult && (
+          <Card size="small" title="处理结果" style={{ marginBottom: 8 }}
+            extra={<Button size="small" icon={<CopyOutlined />} onClick={() => { navigator.clipboard.writeText(aiResult); message.success('已复制'); }} />}>
+            <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.7 }}>{aiResult}</Paragraph>
+            {aiExplanation && <Text style={{ fontSize: 11, color: '#888' }}>{aiExplanation}</Text>}
+            {aiChanges.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <Text style={{ fontSize: 11, color: '#888' }}>修改详情:</Text>
+                {aiChanges.slice(0, 5).map((c: any, i: number) => (
+                  <div key={i} style={{ fontSize: 11, marginTop: 4, padding: 4, background: '#fafafa', borderRadius: 4 }}>
+                    <Text delete style={{ color: '#999' }}>{c.original}</Text>
+                    <Text style={{ color: '#1a1a2e', marginLeft: 6 }}>{c.modified}</Text>
                   </div>
                 ))}
               </div>
-            ),
-          }))}
-        />
-      </div>
-    );
-  };
-
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
-  if (loading) {
-    return <LoadingSpinner tip="加载项目数据..." />;
-  }
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 16,
-        height: 'calc(100vh - 200px)',
-        minHeight: 600,
-      }}
-    >
-      {/* ---- Left: Outline Sidebar ---- */}
-      <div
-        style={{
-          width: 260,
-          minWidth: 260,
-          borderRight: '1px solid #f0f0f0',
-          paddingRight: 12,
-          overflowY: 'auto',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 12,
-          }}
-        >
-          <Text strong>论文提纲</Text>
-          <Button size="small" type="text" onClick={onBack}>
-            返回修改
-          </Button>
-        </div>
-        {renderOutlineSidebar()}
-
-        <Divider style={{ margin: '12px 0' }} />
-
-        {/* Selected text indicator */}
-        <div style={{ marginTop: 12 }}>
-          <Button
-            size="small"
-            type="text"
-            icon={<ArrowLeftOutlined />}
-            onClick={onBack}
-          >
-            返回修改提纲
-          </Button>
-        </div>
+            )}
+          </Card>
+        )}
       </div>
 
-      {/* ---- Right: Full Text Editor ---- */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* ═══ RIGHT: Fulltext Content ═══ */}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
         {/* Toolbar */}
-        <AIOperationsToolbar
-          disabled={!fullText && !selectedText}
-          onOperation={handleAIOperation}
-        />
-
-        {/* Content area */}
-        <div
-          ref={contentRef}
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '16px 24px',
-            border: '1px solid #f0f0f0',
-            borderRadius: 8,
-            backgroundColor: '#fff',
-            userSelect: 'text',
-          }}
-        >
-          {generating ? (
-            <div style={{ textAlign: 'center', padding: '60px 0' }}>
-              <LoadingSpinner tip="正在生成全文，这可能需要几分钟时间..." />
-              <Text
-                type="secondary"
-                style={{ display: 'block', marginTop: 16 }}
-              >
-                AI 正在根据提纲逐章撰写论文内容，请耐心等待
-              </Text>
-            </div>
-          ) : fullText ? (
-            renderMarkdownText(fullText)
-          ) : (
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '100%',
-              }}
-            >
-              <Empty description="尚未生成全文">
-                <Button
-                  type="primary"
-                  size="large"
-                  icon={<BulbOutlined />}
-                  onClick={handleGenerate}
-                  loading={generating}
-                >
-                  生成全文
-                </Button>
-              </Empty>
-            </div>
-          )}
-
-          {/* Selected text indicator */}
-          {selectedText && (
-            <div
-              style={{
-                position: 'sticky',
-                bottom: 16,
-                left: 0,
-                right: 0,
-                display: 'flex',
-                justifyContent: 'center',
-              }}
-            >
-              <Tag
-                color="blue"
-                style={{
-                  padding: '4px 16px',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                }}
-              >
-                已选中文本（{selectedText.length} 字符），点击上方 AI 操作按钮处理
-              </Tag>
-            </div>
-          )}
-        </div>
-
-        {/* Bottom action bar */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginTop: 12,
-          }}
-        >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Space>
-            <Button icon={<ArrowLeftOutlined />} onClick={onBack}>
-              返回修改提纲
-            </Button>
+            <FileTextOutlined style={{ color: '#1a1a2e' }} />
+            <Text strong>{project.title}</Text>
           </Space>
-
           <Space>
-            <Button
-              icon={<SaveOutlined />}
-              onClick={handleSave}
-              loading={saving}
-              disabled={!fullText}
-            >
-              保存全文
-            </Button>
-            <Button
-              type="primary"
-              icon={<DownloadOutlined />}
-              onClick={handleExport}
-              loading={exporting}
-              disabled={!fullText}
-            >
-              导出 Word
-            </Button>
+            {!fullText && !generating && (
+              <Button type="primary" icon={<BulbOutlined />} onClick={handleGenerate} loading={generating}>生成全文</Button>
+            )}
+            {fullText && (
+              <>
+                <Button icon={<SaveOutlined />} onClick={handleSave} loading={saving}>保存</Button>
+                <Button icon={<DownloadOutlined />} onClick={handleExport} loading={exporting}>导出 Word</Button>
+              </>
+            )}
           </Space>
         </div>
+
+        {/* Content */}
+        {generating ? (
+          <LoadingSpinner tip="正在生成全文，请耐心等待..." />
+        ) : fullText ? (
+          <div ref={contentRef} style={{ whiteSpace: 'pre-wrap', lineHeight: 1.9, fontSize: 14, background: '#fff', padding: 24, borderRadius: 8, border: '1px solid #f0f0f0', minHeight: 400 }}>
+            {fullText}
+          </div>
+        ) : (
+          <Empty description="点击「生成全文」开始" style={{ marginTop: 80 }} />
+        )}
       </div>
-
-      {/* ---- AI Edit Modal ---- */}
-      <AIEditModal
-        open={aiModalOpen}
-        original={aiOriginalText}
-        result={aiResult}
-        loading={aiProcessing}
-        onAccept={handleAcceptAIResult}
-        onClose={() => {
-          setAiModalOpen(false);
-          setAiResult(null);
-        }}
-      />
-
-      {/* ---- Generating overlay ---- */}
-      {generating && (
-        <div style={{ textAlign: 'center', padding: 60 }}>
-          <LoadingSpinner tip="AI 正在撰写全文，请耐心等待..." />
-          <Text type="secondary" style={{ display: 'block', marginTop: 16 }}>
-            长篇写作可能需要较长时间，您可以稍后回来查看
-          </Text>
-        </div>
-      )}
     </div>
   );
 };

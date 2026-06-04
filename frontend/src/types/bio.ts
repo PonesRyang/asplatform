@@ -1,9 +1,7 @@
 export interface AnalyzeRequest {
-  tool_key: string
-  file_id?: string
-  data?: Record<string, unknown>[]
-  parameters: Record<string, unknown>
-  column_types?: Record<string, string>
+  type: string
+  data: Record<string, unknown>[]
+  config: Record<string, unknown>
 }
 
 export interface ChartConfig {

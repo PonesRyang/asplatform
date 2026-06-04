@@ -42,7 +42,7 @@ export async function generateFulltext(data: ThesisFullTextRequest): Promise<{ f
   return response.data
 }
 
-export async function saveFulltext(data: ThesisFullTextRequest & { full_text: string }): Promise<ThesisStep> {
+export async function saveFulltext(data: { project_id: number; token: string; content: string }): Promise<ThesisStep> {
   const response = await api.post<ThesisStep>('/api/ai/thesis/fulltext/save', data)
   return response.data
 }

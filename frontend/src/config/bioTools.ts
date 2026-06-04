@@ -29,21 +29,21 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'bar',
     parameters: [
       {
-        key: 'x_column',
+        key: 'xColumn',
         label: 'X轴列（分组）',
         type: 'columnSelect',
         required: true,
         description: '用作X轴分类的列',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: 'Y轴列（数值）',
         type: 'columnSelect',
         required: true,
         description: '用作Y轴数值的列',
       },
       {
-        key: 'color_column',
+        key: 'colorColumn',
         label: '颜色分组列',
         type: 'columnSelect',
         required: false,
@@ -67,21 +67,21 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'line',
     parameters: [
       {
-        key: 'x_column',
+        key: 'xColumn',
         label: 'X轴列（连续变量）',
         type: 'columnSelect',
         required: true,
         description: '用作X轴的连续变量列',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: 'Y轴列（数值）',
         type: 'columnSelect',
         required: true,
         description: '用作Y轴数值的列',
       },
       {
-        key: 'color_column',
+        key: 'colorColumn',
         label: '分组列',
         type: 'columnSelect',
         required: false,
@@ -105,28 +105,28 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'scatter',
     parameters: [
       {
-        key: 'x_column',
+        key: 'xColumn',
         label: 'X轴列',
         type: 'columnSelect',
         required: true,
         description: '用作X轴的连续变量列',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: 'Y轴列',
         type: 'columnSelect',
         required: true,
         description: '用作Y轴的连续变量列',
       },
       {
-        key: 'color_column',
+        key: 'colorColumn',
         label: '颜色分组列',
         type: 'columnSelect',
         required: false,
         description: '可选的颜色分组变量',
       },
       {
-        key: 'size_column',
+        key: 'sizeColumn',
         label: '点大小列',
         type: 'columnSelect',
         required: false,
@@ -150,21 +150,21 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'box',
     parameters: [
       {
-        key: 'x_column',
+        key: 'xColumn',
         label: 'X轴列（分组）',
         type: 'columnSelect',
         required: true,
         description: '用作X轴分组的分类列',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: 'Y轴列（数值）',
         type: 'columnSelect',
         required: true,
         description: '用作Y轴数值的列',
       },
       {
-        key: 'color_column',
+        key: 'colorColumn',
         label: '颜色分组列',
         type: 'columnSelect',
         required: false,
@@ -188,21 +188,21 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'violin',
     parameters: [
       {
-        key: 'x_column',
+        key: 'xColumn',
         label: 'X轴列（分组）',
         type: 'columnSelect',
         required: true,
         description: '用作X轴分组的分类列',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: 'Y轴列（数值）',
         type: 'columnSelect',
         required: true,
         description: '用作Y轴数值的列',
       },
       {
-        key: 'color_column',
+        key: 'colorColumn',
         label: '颜色分组列',
         type: 'columnSelect',
         required: false,
@@ -226,21 +226,21 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'heatmap',
     parameters: [
       {
-        key: 'x_column',
+        key: 'xColumn',
         label: 'X轴列',
         type: 'columnSelect',
         required: true,
         description: '用作矩阵列的变量',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: 'Y轴列',
         type: 'columnSelect',
         required: true,
         description: '用作矩阵行的变量',
       },
       {
-        key: 'value_column',
+        key: 'valueColumn',
         label: '数值列',
         type: 'columnSelect',
         required: true,
@@ -271,14 +271,14 @@ export const BIO_TOOLS: BioTool[] = [
         description: '用于环形分区的分类列',
       },
       {
-        key: 'value_column',
+        key: 'valueColumn',
         label: '数值列',
         type: 'columnSelect',
         required: true,
         description: '用于颜色填充的数值列',
       },
       {
-        key: 'group_column',
+        key: 'groupColumn',
         label: '分组列',
         type: 'columnSelect',
         required: false,
@@ -302,7 +302,7 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'histogram',
     parameters: [
       {
-        key: 'x_column',
+        key: 'xColumn',
         label: '数值列',
         type: 'columnSelect',
         required: true,
@@ -316,7 +316,7 @@ export const BIO_TOOLS: BioTool[] = [
         description: '直方图的分箱数量，默认自动计算',
       },
       {
-        key: 'color_column',
+        key: 'colorColumn',
         label: '分组列',
         type: 'columnSelect',
         required: false,
@@ -340,21 +340,21 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'smooth_curve',
     parameters: [
       {
-        key: 'x_column',
+        key: 'xColumn',
         label: 'X轴列',
         type: 'columnSelect',
         required: true,
         description: '用作X轴的连续变量列',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: 'Y轴列',
         type: 'columnSelect',
         required: true,
         description: '用作Y轴数值的列',
       },
       {
-        key: 'color_column',
+        key: 'colorColumn',
         label: '分组列',
         type: 'columnSelect',
         required: false,
@@ -491,14 +491,14 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'ttest',
     parameters: [
       {
-        key: 'group_column',
+        key: 'groupColumn',
         label: '分组列',
         type: 'columnSelect',
         required: true,
         description: '包含两个水平的分类变量',
       },
       {
-        key: 'value_column',
+        key: 'valueColumn',
         label: '数值列',
         type: 'columnSelect',
         required: true,
@@ -538,14 +538,14 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'wilcox',
     parameters: [
       {
-        key: 'group_column',
+        key: 'groupColumn',
         label: '分组列',
         type: 'columnSelect',
         required: true,
         description: '包含两个水平的分类变量',
       },
       {
-        key: 'value_column',
+        key: 'valueColumn',
         label: '数值列',
         type: 'columnSelect',
         required: true,
@@ -585,14 +585,14 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'anova',
     parameters: [
       {
-        key: 'group_column',
+        key: 'groupColumn',
         label: '分组列',
         type: 'columnSelect',
         required: true,
         description: '包含多个水平的分类变量',
       },
       {
-        key: 'value_column',
+        key: 'valueColumn',
         label: '数值列',
         type: 'columnSelect',
         required: true,
@@ -695,14 +695,14 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'linreg',
     parameters: [
       {
-        key: 'x_column',
+        key: 'xColumn',
         label: '自变量X列',
         type: 'columnSelect',
         required: true,
         description: '回归的自变量',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: '因变量Y列',
         type: 'columnSelect',
         required: true,
@@ -733,14 +733,14 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'logreg',
     parameters: [
       {
-        key: 'x_columns',
+        key: 'xColumns',
         label: '自变量列（多选）',
         type: 'columnMultiSelect',
         required: true,
         description: '回归的自变量，可选择多个',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: '因变量列（二分类）',
         type: 'columnSelect',
         required: true,
@@ -764,14 +764,14 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'lasso',
     parameters: [
       {
-        key: 'x_columns',
+        key: 'xColumns',
         label: '自变量列（多选）',
         type: 'columnMultiSelect',
         required: true,
         description: '特征变量列',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: '因变量列',
         type: 'columnSelect',
         required: true,
@@ -802,14 +802,14 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'ridge',
     parameters: [
       {
-        key: 'x_columns',
+        key: 'xColumns',
         label: '自变量列（多选）',
         type: 'columnMultiSelect',
         required: true,
         description: '特征变量列',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: '因变量列',
         type: 'columnSelect',
         required: true,
@@ -879,21 +879,21 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'km',
     parameters: [
       {
-        key: 'time_column',
+        key: 'timeColumn',
         label: '时间列',
         type: 'columnSelect',
         required: true,
         description: '生存时间或随访时间列',
       },
       {
-        key: 'event_column',
+        key: 'eventColumn',
         label: '事件状态列',
         type: 'columnSelect',
         required: true,
         description: '事件发生标志列（1=事件发生，0=删失）',
       },
       {
-        key: 'group_column',
+        key: 'groupColumn',
         label: '分组列',
         type: 'columnSelect',
         required: false,
@@ -917,21 +917,21 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'cox',
     parameters: [
       {
-        key: 'time_column',
+        key: 'timeColumn',
         label: '时间列',
         type: 'columnSelect',
         required: true,
         description: '生存时间或随访时间列',
       },
       {
-        key: 'event_column',
+        key: 'eventColumn',
         label: '事件状态列',
         type: 'columnSelect',
         required: true,
         description: '事件发生标志列（1=事件发生，0=删失）',
       },
       {
-        key: 'covariate_columns',
+        key: 'covariateColumns',
         label: '协变量列（多选）',
         type: 'columnMultiSelect',
         required: true,
@@ -948,21 +948,21 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'logrank',
     parameters: [
       {
-        key: 'time_column',
+        key: 'timeColumn',
         label: '时间列',
         type: 'columnSelect',
         required: true,
         description: '生存时间或随访时间列',
       },
       {
-        key: 'event_column',
+        key: 'eventColumn',
         label: '事件状态列',
         type: 'columnSelect',
         required: true,
         description: '事件发生标志列（1=事件发生，0=删失）',
       },
       {
-        key: 'group_column',
+        key: 'groupColumn',
         label: '分组列',
         type: 'columnSelect',
         required: true,
@@ -1021,14 +1021,14 @@ export const BIO_TOOLS: BioTool[] = [
         description: '参与PCA分析的数值特征列',
       },
       {
-        key: 'color_column',
+        key: 'colorColumn',
         label: '颜色分组列',
         type: 'columnSelect',
         required: false,
         description: '用于着色样本的分组变量',
       },
       {
-        key: 'label_column',
+        key: 'labelColumn',
         label: '标签列',
         type: 'columnSelect',
         required: false,
@@ -1070,14 +1070,14 @@ export const BIO_TOOLS: BioTool[] = [
     chartType: 'plsda',
     parameters: [
       {
-        key: 'x_columns',
+        key: 'xColumns',
         label: '特征列（多选）',
         type: 'columnMultiSelect',
         required: true,
         description: '参与PLS-DA的数值特征列',
       },
       {
-        key: 'y_column',
+        key: 'yColumn',
         label: '标签/分组列',
         type: 'columnSelect',
         required: true,

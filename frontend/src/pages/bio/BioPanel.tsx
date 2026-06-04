@@ -23,6 +23,7 @@ import {
 } from '@ant-design/icons';
 import { useDataParser } from '../../hooks/useDataParser';
 import { analyzeBioData } from '../../services/bioApi';
+import { useServiceToken } from '../../hooks/useServiceToken';
 import type { BioTool, BioToolParameter } from '../../config/bioTools';
 import type { AnalysisResult } from '../../types/bio';
 
@@ -289,6 +290,7 @@ function getEffectiveParamType(param: BioToolParameter): BioToolParameter['type'
 // ---------------------------------------------------------------------------
 
 export default function BioPanel({ tool, onResult }: BioPanelProps) {
+  const { serviceToken } = useServiceToken();
   const { parsedData, columns, error: parseError, parse, clear } = useDataParser();
   const [activeTab, setActiveTab] = useState<string>('paste');
   const [pastedText, setPastedText] = useState('');
@@ -388,12 +390,13 @@ export default function BioPanel({ tool, onResult }: BioPanelProps) {
 
     try {
       const result = await analyzeBioData({
-        tool_key: tool.key,
+        type: tool.key,
         data: parsedData,
-        parameters: paramValues,
-      });
+        config: paramValues,
+        token: serviceToken,
+      } as any);
 
-      if (result.success) {
+      if (result.plot_data || result.stats) {
         onResult(result);
         message.success('分析完成');
       } else {

@@ -1,1 +1,0 @@
-import{r as e}from"./chunk-QTnfLwEv.js";import{Rn as t}from"./jsx-runtime-Ds0ewoJH.js";import{n}from"./index-CP_KEF6z.js";var r=e(t(),1);function i(){let e=(0,r.useContext)(n);if(e===void 0)throw Error(`useServiceToken must be used within a ServiceTokenProvider`);return e}export{i as t};

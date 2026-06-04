@@ -42,7 +42,64 @@ async def analyze_bio_data(request: AnalyzeRequest, db: Session = Depends(get_db
         for col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='ignore')
 
-        if analysis_type == 'pca':
+        # ── Basic chart types (Plotly-only, no stats) ──
+        if analysis_type == 'bar':
+            x_col, y_col = config.get('xColumn'), config.get('yColumn')
+            if not x_col or not y_col: raise HTTPException(status_code=400, detail="请选择 X 轴和 Y 轴列")
+            plot_data = [{"x": df[x_col].astype(str).tolist(), "y": df[y_col].tolist(), "type": "bar", "name": y_col}]
+            return {"plot_data": plot_data, "plot_layout": {"barmode": "group"}, "stats": {}}
+
+        elif analysis_type == 'line':
+            x_col, y_cols = config.get('xColumn'), config.get('yColumns', [])
+            if not x_col or not y_cols: raise HTTPException(status_code=400, detail="请选择 X 轴和 Y 轴列")
+            plot_data = [{"x": df[x_col].tolist(), "y": df[c].tolist(), "type": "scatter", "mode": "lines+markers", "name": c} for c in y_cols]
+            return {"plot_data": plot_data, "stats": {}}
+
+        elif analysis_type == 'scatter':
+            x_col, y_col = config.get('xColumn'), config.get('yColumn')
+            if not x_col or not y_col: raise HTTPException(status_code=400, detail="请选择 X 轴和 Y 轴列")
+            plot_data = [{"x": df[x_col].tolist(), "y": df[y_col].tolist(), "type": "scatter", "mode": "markers", "name": f"{x_col} vs {y_col}"}]
+            return {"plot_data": plot_data, "stats": {}}
+
+        elif analysis_type == 'box':
+            x_col, y_col = config.get('xColumn'), config.get('yColumn')
+            if not x_col or not y_col: raise HTTPException(status_code=400, detail="请选择 X 轴和 Y 轴列")
+            groups = df[x_col].unique()
+            plot_data = [{"y": df[df[x_col] == g][y_col].dropna().tolist(), "type": "box", "name": str(g)} for g in groups]
+            return {"plot_data": plot_data, "stats": {}}
+
+        elif analysis_type == 'violin':
+            # Rewrite box data as violin type
+            x_col, y_col = config.get('xColumn'), config.get('yColumn')
+            if not x_col or not y_col: raise HTTPException(status_code=400, detail="请选择 X 轴和 Y 轴列")
+            groups = df[x_col].unique()
+            plot_data = [{"y": df[df[x_col] == g][y_col].dropna().tolist(), "type": "violin", "name": str(g)} for g in groups]
+            return {"plot_data": plot_data, "stats": {}}
+
+        elif analysis_type == 'histogram':
+            val_col = config.get('valueColumn')
+            if not val_col: raise HTTPException(status_code=400, detail="请选择数值列")
+            plot_data = [{"x": df[val_col].dropna().tolist(), "type": "histogram", "name": val_col}]
+            return {"plot_data": plot_data, "stats": {}}
+
+        elif analysis_type == 'smooth_curve':
+            x_col, y_col = config.get('xColumn'), config.get('yColumn')
+            if not x_col or not y_col: raise HTTPException(status_code=400, detail="请选择 X 轴和 Y 轴列")
+            df_sorted = df.sort_values(by=x_col)
+            plot_data = [{"x": df_sorted[x_col].tolist(), "y": df_sorted[y_col].tolist(), "type": "scatter", "mode": "lines", "line": {"shape": "spline"}, "name": y_col}]
+            return {"plot_data": plot_data, "stats": {}}
+
+        elif analysis_type == 'volcano':
+            fc_col, pv_col = config.get('xColumn', config.get('features', [None])[0]), config.get('yColumn', config.get('features', [None,None])[1])
+            if not fc_col or not pv_col: fc_col, pv_col = config.get('features', [None, None])[0], config.get('features', [None, None])[1]
+            if not fc_col or not pv_col: raise HTTPException(status_code=400, detail="请选择 logFC 和 p-value 列")
+            df_clean = df[[fc_col, pv_col]].dropna()
+            df_clean['neg_log10_p'] = -np.log10(df_clean[pv_col].clip(lower=1e-300))
+            plot_data = [{"x": df_clean[fc_col].tolist(), "y": df_clean['neg_log10_p'].tolist(), "type": "scatter", "mode": "markers", "name": "volcano"}]
+            return {"plot_data": plot_data, "plot_layout": {"xaxis": {"title": fc_col}, "yaxis": {"title": "-log10(p)"}}, "stats": {}}
+
+        # ── Statistical analysis types ──
+        elif analysis_type == 'pca':
             features = config.get('features', [])
             if len(features) < 2: raise HTTPException(status_code=400, detail="PCA 分析至少需要选择 2 个特征列")
 
