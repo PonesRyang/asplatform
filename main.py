@@ -59,12 +59,13 @@ def _inject_app_mode(host: str, domain_route_map: dict, html_dir: str) -> tuple:
     with open(index_file, "r", encoding="utf-8") as f:
         html = f.read()
 
+    # Inject __APP_MODE__ if domain route matches
+    head_extra = ""
     if route_name:
-        inject_script = f"""<script>
-    window.__APP_MODE__ = "{route_name}";
-</script>
-"""
-        html = html.replace("</head>", f"    {inject_script}</head>")
+        head_extra += f"""<script>window.__APP_MODE__ = "{route_name}";</script>"""
+
+    if head_extra:
+        html = html.replace("</head>", f"    {head_extra}</head>")
     return True, html
 
 
@@ -162,7 +163,6 @@ from api.topic import router as topic_router
 from api.thesis import router as thesis_router
 from api.literature import lit_router, enhance_router, lit_compare_router
 from api.bio import router as bio_router
-from api.logs import router as logs_router
 
 app.include_router(auth_router)
 app.include_router(admin_router)
@@ -173,13 +173,13 @@ app.include_router(lit_router)
 app.include_router(enhance_router)
 app.include_router(lit_compare_router)
 app.include_router(bio_router)
-app.include_router(logs_router)
 
 
 # =============================================================================
 # Static files and frontend catch-all
 # =============================================================================
 if os.path.exists(HTML_DIR):
+
     app.mount("/assets", StaticFiles(directory=os.path.join(HTML_DIR, "assets")), name="assets")
 
     @app.get("/{full_path:path}", response_model=None)
@@ -190,6 +190,7 @@ if os.path.exists(HTML_DIR):
         if ok:
             return Response(content=html, media_type="text/html; charset=utf-8")
         raise HTTPException(status_code=404, detail="Frontend not found")
+
 
 # =============================================================================
 # Entry point

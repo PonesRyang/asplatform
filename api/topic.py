@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Body
@@ -18,7 +17,6 @@ from database import get_db
 from models import AdminUser, ThesisProject, ThesisStep
 from api.dependencies import verify_service_access, deduct_token_quota
 from services import ai_service, literature_service
-from services.generation_logger import log_generation
 
 router = APIRouter(prefix="/api/ai/topic", tags=["topics"])
 
@@ -34,14 +32,12 @@ async def generate_research_topics(req: TopicGenerationRequest, db: Session = De
 
     try:
         # Call AI service to generate topics
-        t0 = time.time()
         result_dict = await ai_service.generate_research_topics(
             discipline=req.discipline,
             research_direction=req.research_direction or "",
             keywords=req.keywords or [],
             count=req.count
         )
-        duration_ms = int((time.time() - t0) * 1000)
 
         # Parse JSON result from the content field
         result = result_dict.get("content", "")
@@ -55,19 +51,6 @@ async def generate_research_topics(req: TopicGenerationRequest, db: Session = De
             json_str = result
 
         topics_data = json.loads(json_str)
-
-        # Log generation
-        log_generation(
-            db, mode="topic_generate",
-            token_id=token_record.id if token_record else None,
-            input_text=f"{req.discipline} | {req.research_direction or ''} | {', '.join(req.keywords or [])}",
-            model_response=result, output_content=result,
-            model=ai_service.model,
-            prompt_tokens=result_dict.get("prompt_tokens", 0),
-            completion_tokens=result_dict.get("completion_tokens", 0),
-            total_tokens=result_dict.get("total_tokens", 0),
-            duration_ms=duration_ms, status="success",
-        )
 
         return {
             "topics": topics_data.get("topics", []),
@@ -89,12 +72,10 @@ async def analyze_research_topic(req: TopicAnalysisRequest, db: Session = Depend
 
     try:
         # Call AI service to analyze topic
-        t0 = time.time()
         result_dict = await ai_service.analyze_topic(
             topic=req.topic,
             discipline=req.discipline
         )
-        duration_ms = int((time.time() - t0) * 1000)
 
         # Parse JSON result from the content field
         result = result_dict.get("content", "")
@@ -111,20 +92,6 @@ async def analyze_research_topic(req: TopicAnalysisRequest, db: Session = Depend
 
         # Fetch real literature for recommended references
         real_citations = await literature_service.search_literature(req.topic, max_results=5)
-
-        # Log generation
-        log_generation(
-            db, mode="topic_analyze",
-            token_id=token_record.id if token_record else None,
-            input_text=req.topic,
-            search_results=real_citations,
-            model_response=result, output_content=result,
-            model=ai_service.model,
-            prompt_tokens=result_dict.get("prompt_tokens", 0),
-            completion_tokens=result_dict.get("completion_tokens", 0),
-            total_tokens=result_dict.get("total_tokens", 0),
-            duration_ms=duration_ms, status="success",
-        )
 
         return {
             "topic": req.topic,
@@ -284,9 +251,7 @@ async def create_thesis_from_topic_and_generate_outline(req: dict = Body(...), d
 3. 公式必须使用 LaTeX 格式，块级公式使用 `$$ ... $$`，行内公式使用 `$ ... $`。
 4. 直接输出提纲内容，严禁任何开场白或解释性文字。"""
 
-        t0 = time.time()
         ai_response = await ai_service.chat_completion([{"role": "user", "content": prompt}], temperature=0.7)
-        duration_ms = int((time.time() - t0) * 1000)
         outline = ai_response["content"]
 
         # --- 后处理：确保提纲的参考文献章节包含所有真实检索文献和用户文献 ---
@@ -348,22 +313,6 @@ async def create_thesis_from_topic_and_generate_outline(req: dict = Body(...), d
         # Deduct token quota if using service token
         if token_record and ai_response.get("total_tokens", 0) > 0:
             deduct_token_quota(db, token_record.id, ai_response["total_tokens"])
-
-        # Log generation
-        log_generation(
-            db, mode="topic_create_and_outline",
-            token_id=token_record.id if token_record else None,
-            project_id=project.id,
-            input_text=topic_title,
-            search_results=real_citations,
-            final_prompt=prompt, model_response=outline,
-            output_content=outline,
-            model=ai_service.model,
-            prompt_tokens=ai_response.get("prompt_tokens", 0),
-            completion_tokens=ai_response.get("completion_tokens", 0),
-            total_tokens=ai_response.get("total_tokens", 0),
-            duration_ms=duration_ms, status="success",
-        )
 
         # Save outline
         step = ThesisStep(project_id=project.id, step_num=1, content=outline)

@@ -37,7 +37,6 @@ from database import get_db
 from models import AdminUser, ThesisProject, ThesisStep
 from api.dependencies import verify_service_access, deduct_token_quota
 from services import ai_service, literature_service, ReferenceVerifier
-from services.generation_logger import log_generation
 
 router = APIRouter(prefix="/api/ai/thesis", tags=["thesis"])
 
@@ -405,28 +404,12 @@ async def generate_outline(req: ThesisOutlineRequest, db: Session = Depends(get_
 - **药学**：药物来源与纯度、给药方案与途径、动物品系与培养条件、药效学/药代动力学参数、毒理学评估、标准单位报告
 """
 
-    t0 = time.time()
     ai_response = await ai_service.chat_completion([{"role": "user", "content": prompt}])
-    duration_ms = int((time.time() - t0) * 1000)
     outline = ai_response["content"]
 
     # Deduct token quota if using service token
     if token_record and ai_response.get("total_tokens", 0) > 0:
         deduct_token_quota(db, token_record.id, ai_response["total_tokens"])
-
-    # Log generation
-    log_generation(
-        db, mode="outline",
-        token_id=token_record.id if token_record else None,
-        project_id=project.id,
-        final_prompt=prompt, model_response=outline,
-        output_content=outline,
-        model=ai_service.model,
-        prompt_tokens=ai_response.get("prompt_tokens", 0),
-        completion_tokens=ai_response.get("completion_tokens", 0),
-        total_tokens=ai_response.get("total_tokens", 0),
-        duration_ms=duration_ms, status="success",
-    )
 
     # Save step
     step = ThesisStep(project_id=project.id, step_num=1, content=outline)
@@ -907,9 +890,7 @@ async def generate_fulltext(req: ThesisFullTextRequest, db: Session = Depends(ge
     # 随机化 temperature 以增加生成多样性 (0.7-0.9)
     generation_temperature = round(random.uniform(0.7, 0.9), 1)
 
-    t0 = time.time()
     ai_response = await ai_service.chat_completion([{"role": "system", "content": "你是一位专业的学术写作者，擅长根据研究主题灵活选择最合适的论述风格和文章架构。直接输出论文内容，不要有任何对话式文本。"}, {"role": "user", "content": prompt}], temperature=generation_temperature)
-    duration_ms = int((time.time() - t0) * 1000)
     fulltext = ai_response["content"]
 
     # --- 后处理：确保用户指定的文献一定出现在参考文献列表中 ---
@@ -998,21 +979,6 @@ async def generate_fulltext(req: ThesisFullTextRequest, db: Session = Depends(ge
     # Deduct token quota if using service token
     if token_record and ai_response.get("total_tokens", 0) > 0:
         deduct_token_quota(db, token_record.id, ai_response["total_tokens"])
-
-    # Log generation
-    log_generation(
-        db, mode="fulltext",
-        token_id=token_record.id if token_record else None,
-        project_id=project.id,
-        final_prompt=prompt, model_response=fulltext,
-        output_content=fulltext,
-        model=ai_service.model,
-        temperature=generation_temperature,
-        prompt_tokens=ai_response.get("prompt_tokens", 0),
-        completion_tokens=ai_response.get("completion_tokens", 0),
-        total_tokens=ai_response.get("total_tokens", 0),
-        duration_ms=duration_ms, status="success",
-    )
 
     # Save step
     step = ThesisStep(project_id=project.id, step_num=2, content=fulltext)

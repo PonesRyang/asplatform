@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from database import Base
@@ -70,35 +70,3 @@ class ThesisStep(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     
     project = relationship("ThesisProject", back_populates="steps")
-
-
-class GenerationLog(Base):
-    """生成过程与结果完整记录"""
-    __tablename__ = "generation_logs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    token_id = Column(Integer, ForeignKey("tokens.id"), nullable=True)
-    project_id = Column(Integer, ForeignKey("thesis_projects.id"), nullable=True)
-    prompt_template_id = Column(Integer, nullable=True)
-    prompt_version = Column(Integer, nullable=True)
-
-    mode = Column(String(64))  # polish / outline / fulltext / topic_generate / translate / ...
-    input_text = Column(Text)  # 用户输入原文
-    search_results = Column(Text)  # JSON: 文献检索结果快照
-    final_prompt = Column(Text)  # 最终发给模型的 prompt
-    model_response = Column(Text)  # 模型原始返回
-    output_content = Column(Text)  # 后处理后的最终内容
-    model = Column(String(64))
-    temperature = Column(Float)
-    max_tokens = Column(Integer)
-
-    prompt_tokens = Column(Integer, default=0)
-    completion_tokens = Column(Integer, default=0)
-    total_tokens = Column(Integer, default=0)
-    duration_ms = Column(Integer, nullable=True)
-    status = Column(String(32), default="pending")  # pending / success / failed / timeout
-    error_message = Column(Text)
-    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
-
-    token_owner = relationship("TokenRecord")
-    project = relationship("ThesisProject")
