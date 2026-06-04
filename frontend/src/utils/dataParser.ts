@@ -1,3 +1,5 @@
+import * as XLSX from 'xlsx'
+
 export function parseCSV(text: string): Record<string, unknown>[] {
   const lines = text.trim().split(/\r?\n/)
   if (lines.length < 2) return []
@@ -60,16 +62,15 @@ function tryParseNumber(value: string): string | number {
 }
 
 export function parseExcel(buffer: ArrayBuffer): Record<string, unknown>[] {
-  // Placeholder for XLSX parsing.
-  // In production, integrate a library such as xlsx (SheetJS):
-  //   const workbook = XLSX.read(buffer, { type: 'array' })
-  //   const sheet = workbook.Sheets[workbook.SheetNames[0]]
-  //   return XLSX.utils.sheet_to_json(sheet)
-  //
-  // Falls back to treating the buffer as UTF-8 text and parsing as CSV.
-  const decoder = new TextDecoder('utf-8')
-  const text = decoder.decode(buffer)
-  return autoParse(text)
+  const workbook = XLSX.read(buffer, { type: 'array' })
+  const firstSheetName = workbook.SheetNames[0]
+  if (!firstSheetName) return []
+
+  const sheet = workbook.Sheets[firstSheetName]
+  return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    defval: '',
+    raw: true,
+  })
 }
 
 export function autoParse(text: string): Record<string, unknown>[] {

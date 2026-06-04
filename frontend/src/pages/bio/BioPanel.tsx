@@ -291,7 +291,7 @@ function getEffectiveParamType(param: BioToolParameter): BioToolParameter['type'
 
 export default function BioPanel({ tool, onResult }: BioPanelProps) {
   const { serviceToken } = useServiceToken();
-  const { parsedData, columns, error: parseError, parse, clear } = useDataParser();
+  const { parsedData, columns, error: parseError, parse, parseWorkbook, clear } = useDataParser();
   const [activeTab, setActiveTab] = useState<string>('paste');
   const [pastedText, setPastedText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -322,21 +322,29 @@ export default function BioPanel({ tool, onResult }: BioPanelProps) {
 
   const handleFileUpload = useCallback(
     (file: File) => {
+      const isWorkbook = /\.(xlsx|xls)$/i.test(file.name);
       const reader = new FileReader();
       reader.onload = (e) => {
-        const text = e.target?.result;
-        if (typeof text === 'string') {
-          parse(text);
+        const result = e.target?.result;
+        if (isWorkbook && result instanceof ArrayBuffer) {
+          parseWorkbook(result, file.name);
+          message.success(`已加载文件: ${file.name}`);
+        } else if (typeof result === 'string') {
+          parse(result);
           message.success(`已加载文件: ${file.name}`);
         }
       };
       reader.onerror = () => {
         message.error('文件读取失败');
       };
-      reader.readAsText(file, 'UTF-8');
+      if (isWorkbook) {
+        reader.readAsArrayBuffer(file);
+      } else {
+        reader.readAsText(file, 'UTF-8');
+      }
       return false; // Prevent auto upload
     },
-    [parse],
+    [parse, parseWorkbook],
   );
 
   const handlePasteParse = useCallback(() => {
@@ -573,7 +581,7 @@ export default function BioPanel({ tool, onResult }: BioPanelProps) {
               label: '上传文件',
               children: (
                 <Dragger
-                  accept=".csv,.xlsx,.txt,.tsv"
+                  accept=".csv,.xlsx,.xls,.txt,.tsv"
                   multiple={false}
                   showUploadList={false}
                   beforeUpload={handleFileUpload}
@@ -582,7 +590,7 @@ export default function BioPanel({ tool, onResult }: BioPanelProps) {
                     <UploadOutlined style={{ fontSize: 36, color: '#1677ff' }} />
                   </p>
                   <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
-                  <p className="ant-upload-hint">支持 .csv、.xlsx、.txt、.tsv 格式</p>
+                  <p className="ant-upload-hint">支持 .csv、.xlsx、.xls、.txt、.tsv 格式</p>
                 </Dragger>
               ),
             },
