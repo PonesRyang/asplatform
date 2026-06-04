@@ -12,7 +12,7 @@ from schemas.literature import (
     GapAnalysisRequest,
 )
 from schemas.ai import EnhanceLiteratureRequest
-from utils.auth import get_optional_admin
+from utils.auth import get_optional_admin, check_permission
 from database import get_db
 from models import AdminUser
 from api.dependencies import verify_service_access
@@ -21,6 +21,13 @@ from services import ai_service, literature_service
 lit_router = APIRouter(prefix="/api/literature", tags=["literature"])
 lit_compare_router = APIRouter(prefix="/api/lit-compare", tags=["literature-compare"])
 enhance_router = APIRouter(prefix="/api", tags=["enhance-literature"])
+
+
+async def require_literature_access(db: Session, current_user: Optional[AdminUser], token: Optional[str]):
+    if current_user:
+        check_permission(current_user, "ai")
+        return None
+    return await verify_service_access(db, token, "ai")
 
 
 def extract_text_from_file(content: bytes, filename: str) -> str:
@@ -64,11 +71,7 @@ async def search_literature_api(request: LiteratureSearchRequest, db: Session = 
     Returns:
         List of citation dictionaries with full metadata
     """
-    # Check permission (allow with token or admin)
-    if not current_user:
-        if request.token:
-            token_record = await verify_service_access(db, request.token, "ai")
-        # If no token and no admin, we still allow for now (can be restricted later)
+    await require_literature_access(db, current_user, request.token)
 
     citations = await literature_service.search_literature(
         query=request.query,
@@ -88,6 +91,7 @@ async def search_literature_get(query: str, max_results: int = 10, databases: st
     """
     GET endpoint for literature search (for easier browser testing).
     """
+    await verify_service_access(db, token, "ai")
     db_list = [d.strip() for d in databases.split(",")]
     citations = await literature_service.search_literature(
         query=query,
@@ -107,6 +111,7 @@ async def enhance_literature(
     file: Optional[UploadFile] = None,
     text: Optional[str] = Form(None),
     citations: Optional[str] = Form(None),
+    token: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: Optional[AdminUser] = Depends(get_optional_admin)
 ):
@@ -116,6 +121,8 @@ async def enhance_literature(
     """
     if not text:
         raise HTTPException(status_code=400, detail="Missing text parameter")
+
+    await require_literature_access(db, current_user, token)
 
     citation_content = ""
 
@@ -194,10 +201,7 @@ async def enhance_literature_json(
     if not text:
         raise HTTPException(status_code=400, detail="Missing text parameter")
 
-    # Check permission
-    token_record = None
-    if not current_user and req.token:
-        token_record = await verify_service_access(db, req.token, "ai")
+    await require_literature_access(db, current_user, req.token)
 
     # Build prompt for AI to enhance the text with citations
     prompt = f"""Please enhance the following academic paragraph by incorporating relevant citations and references.
@@ -231,10 +235,13 @@ Enhanced text:"""
 @lit_compare_router.post("/extract")
 async def lit_compare_extract(
     files: List[UploadFile] = File(...),
+    token: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: Optional[AdminUser] = Depends(get_optional_admin)
 ):
     """Extract text from uploaded literature files."""
+    await require_literature_access(db, current_user, token)
+
     if len(files) < 1 or len(files) > 5:
         raise HTTPException(status_code=400, detail="请上传 1-5 个文件")
 
@@ -257,6 +264,8 @@ async def lit_compare_analyze(
     current_user: Optional[AdminUser] = Depends(get_optional_admin)
 ):
     """Compare multiple literature documents and provide analysis."""
+    await require_literature_access(db, current_user, req.token)
+
     if len(req.documents) < 2:
         raise HTTPException(status_code=400, detail="Need at least 2 documents")
 
@@ -317,6 +326,8 @@ async def lit_gap_analysis(
     current_user: Optional[AdminUser] = Depends(get_optional_admin)
 ):
     """Analyze gap between start and end documents, provide 4-stage action plan."""
+    await require_literature_access(db, current_user, req.token)
+
     start_preview = req.startDocument.get("content", "")[:3000]
     end_preview = req.endDocument.get("content", "")[:3000]
 

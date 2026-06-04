@@ -87,8 +87,7 @@ async def upload_and_verify_references(
     import logging
     logging.warning(f"[UPLOAD] files={len(files)} token={token[:8] if token else None} project_id={project_id}")
     if not current_user:
-        # Allow unauthenticated access with token if needed
-        pass
+        await verify_service_access(db, token, "ai")
     else:
         check_permission(current_user, "ai")
 
@@ -1344,6 +1343,22 @@ async def export_outline_word(req: dict = Body(...), db: Session = Depends(get_d
 
 @router.get("/{project_id}/export")
 async def export_thesis(project_id: int, token: Optional[str] = None, db: Session = Depends(get_db), current_user: Optional[AdminUser] = Depends(get_optional_admin)):
+    token_record = None
+    if not current_user:
+        token_record = await verify_service_access(db, token, "ai")
+    else:
+        check_permission(current_user, "ai")
+
+    query = db.query(ThesisProject).filter(ThesisProject.id == project_id)
+    if token_record:
+        query = query.filter(ThesisProject.token_id == token_record.id)
+    elif current_user:
+        if current_user.group and current_user.group.name != "SuperAdmin":
+            query = query.filter(ThesisProject.admin_id == current_user.id)
+
+    project = query.first()
+    if not project: raise HTTPException(status_code=404, detail="Project not found")
+
     # Check cache first (if not forcing refresh)
     current_time = time.time()
     if project_id in _export_cache:
@@ -1362,22 +1377,6 @@ async def export_thesis(project_id: int, token: Optional[str] = None, db: Sessio
                     "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
                 }
             )
-
-    token_record = None
-    if not current_user:
-        token_record = await verify_service_access(db, token, "ai")
-    else:
-        check_permission(current_user, "ai")
-
-    query = db.query(ThesisProject).filter(ThesisProject.id == project_id)
-    if token_record:
-        query = query.filter(ThesisProject.token_id == token_record.id)
-    elif current_user:
-        if current_user.group and current_user.group.name != "SuperAdmin":
-            query = query.filter(ThesisProject.admin_id == current_user.id)
-
-    project = query.first()
-    if not project: raise HTTPException(status_code=404, detail="Project not found")
 
     # Get the latest step content (full text)
     latest_step = db.query(ThesisStep).filter(ThesisStep.project_id == project_id, ThesisStep.step_num == 2).order_by(ThesisStep.created_at.desc()).first()
@@ -1549,7 +1548,7 @@ async def export_thesis(project_id: int, token: Optional[str] = None, db: Sessio
 
 
 @router.post("/{project_id}/validate-references")
-async def validate_thesis_references(project_id: int, db: Session = Depends(get_db), current_user: Optional[AdminUser] = Depends(get_optional_admin)):
+async def validate_thesis_references(project_id: int, token: Optional[str] = None, db: Session = Depends(get_db), current_user: Optional[AdminUser] = Depends(get_optional_admin)):
     """
     Validate that references in the thesis text match the provided citation list.
 
@@ -1558,10 +1557,18 @@ async def validate_thesis_references(project_id: int, db: Session = Depends(get_
     2. The reference list is present
     3. Provided citations are actually used in the text
     """
-    token = None  # For future auth
+    token_record = None
+    if not current_user:
+        token_record = await verify_service_access(db, token, "ai")
+    else:
+        check_permission(current_user, "ai")
+
     query = db.query(ThesisProject).filter(ThesisProject.id == project_id)
-    if current_user and current_user.group and current_user.group.name != "SuperAdmin":
-        query = query.filter(ThesisProject.admin_id == current_user.id)
+    if token_record:
+        query = query.filter(ThesisProject.token_id == token_record.id)
+    elif current_user:
+        if current_user.group and current_user.group.name != "SuperAdmin":
+            query = query.filter(ThesisProject.admin_id == current_user.id)
 
     project = query.first()
     if not project:

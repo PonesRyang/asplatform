@@ -100,8 +100,17 @@ def verify_token(token: str, db: Session, required_permission: str = None):
         raise HTTPException(status_code=401, detail="Invalid token")
     if not record.is_active:
         raise HTTPException(status_code=403, detail="Token is inactive")
-    if record.expires_at and record.expires_at < datetime.utcnow():
-        raise HTTPException(status_code=403, detail="Token expired")
-    if required_permission and required_permission not in record.permissions.split(','):
+    if record.expires_at:
+        expires_at = record.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=403, detail="Token expired")
+    permissions = [
+        permission.strip()
+        for permission in (record.permissions or "").split(",")
+        if permission.strip()
+    ]
+    if required_permission and "all" not in permissions and required_permission not in permissions:
         raise HTTPException(status_code=403, detail="Permission denied")
     return record
