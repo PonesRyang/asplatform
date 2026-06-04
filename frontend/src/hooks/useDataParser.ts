@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { autoParse } from '../utils/dataParser';
+import { autoParse, parseExcel } from '../utils/dataParser';
 
 export interface UseDataParserState {
   rawText: string;
@@ -38,6 +38,28 @@ export function useDataParser() {
     }
   }, []);
 
+  const parseWorkbook = useCallback((buffer: ArrayBuffer, filename = ''): void => {
+    try {
+      const data = parseExcel(buffer);
+      const columns =
+        data.length > 0 ? Object.keys(data[0]) : [];
+
+      setState({
+        rawText: filename,
+        parsedData: data,
+        columns,
+        error: null,
+      });
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        rawText: filename,
+        error:
+          err instanceof Error ? err.message : 'Failed to parse workbook',
+      }));
+    }
+  }, []);
+
   const clear = useCallback((): void => {
     setState({
       rawText: '',
@@ -50,6 +72,7 @@ export function useDataParser() {
   return {
     ...state,
     parse,
+    parseWorkbook,
     clear,
   };
 }
