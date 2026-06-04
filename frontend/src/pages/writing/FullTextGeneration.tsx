@@ -48,16 +48,24 @@ interface OutlineSection {
   title: string;
   level: number;
   children: OutlineSection[];
-  raw: string;
+  content: string;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function parseMarkdownOutline(markdown: string): OutlineSection[] {
-  const lines = markdown.split('\n').filter(Boolean);
+  const lines = markdown.split('\n');
   const sections: OutlineSection[] = [];
   let currentSection: OutlineSection | null = null;
+  let currentH2: OutlineSection | null = null;
+  let contentBuffer: string[] = [];
+
+  const flushContent = (target: OutlineSection) => {
+    const text = contentBuffer.join('\n').trim();
+    if (text) target.content = text;
+    contentBuffer = [];
+  };
 
   for (const line of lines) {
     const h1Match = line.match(/^#\s+(.+)/);
@@ -65,55 +73,28 @@ function parseMarkdownOutline(markdown: string): OutlineSection[] {
     const h3Match = line.match(/^###\s+(.+)/);
 
     if (h1Match) {
-      if (currentSection) sections.push(currentSection);
-      currentSection = {
-        key: `sec-${sections.length}`,
-        title: h1Match[1].trim(),
-        level: 1,
-        children: [],
-        raw: line,
-      };
+      if (currentH2) { flushContent(currentH2); currentH2 = null; }
+      else if (currentSection) flushContent(currentSection);
+      currentSection = { key: `sec-${sections.length}`, title: h1Match[1].trim(), level: 1, children: [], content: '' };
+      sections.push(currentSection);
     } else if (h2Match) {
-      const child: OutlineSection = {
-        key: `${currentSection?.key ?? 's'}-${currentSection?.children.length ?? 0}`,
-        title: h2Match[1].trim(),
-        level: 2,
-        children: [],
-        raw: line,
-      };
-      if (currentSection) {
-        currentSection.children.push(child);
-      } else {
-        currentSection = {
-          key: `sec-${sections.length}`,
-          title: child.title,
-          level: 1,
-          children: [],
-          raw: line,
-        };
-        sections.push(currentSection);
-      }
+      if (currentH2) flushContent(currentH2);
+      const child: OutlineSection = { key: `h2-${currentSection?.children.length ?? 0}`, title: h2Match[1].trim(), level: 2, children: [], content: '' };
+      if (currentSection) { currentSection.children.push(child); currentH2 = child; }
+      else { currentSection = { key: `sec-${sections.length}`, title: child.title, level: 1, children: [], content: '' }; sections.push(currentSection); }
     } else if (h3Match) {
-      const child: OutlineSection = {
-        key: `h3-${sections.length}`,
-        title: h3Match[1].trim(),
-        level: 3,
-        children: [],
-        raw: line,
-      };
-      if (currentSection) {
-        const lastChild =
-          currentSection.children[currentSection.children.length - 1];
-        if (lastChild && lastChild.level === 2) {
-          lastChild.children.push(child);
-        } else {
-          currentSection.children.push(child);
-        }
-      }
+      if (currentH2) flushContent(currentH2);
+      const sub: OutlineSection = { key: `h3-${currentH2?.children.length ?? 0}`, title: h3Match[1].trim(), level: 3, children: [], content: '' };
+      if (currentH2) currentH2.children.push(sub);
+      else if (currentSection) currentSection.children.push(sub);
+      currentH2 = null;
+    } else {
+      contentBuffer.push(line);
     }
   }
 
-  if (currentSection) sections.push(currentSection);
+  if (currentH2) flushContent(currentH2);
+  else if (currentSection) flushContent(currentSection);
   return sections;
 }
 
@@ -202,11 +183,12 @@ const FullTextGeneration: FC<FullTextGenerationProps> = ({
       const request: ThesisFullTextRequest = {
         project_id: project.id,
         token: serviceToken,
-        sections: outline,
+        outline: outline,
+        references: [],
       };
 
       const result = await generateFulltext(request);
-      setFullText(result.full_text);
+      setFullText(result.fulltext);
       message.success('全文生成成功！');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '生成全文失败';
@@ -407,57 +389,61 @@ const FullTextGeneration: FC<FullTextGenerationProps> = ({
       );
     }
 
+    // Skip title section (first h1) — show it as header
+    const [titleSection, ...bodySections] = outlineSections;
+
     return (
-      <Collapse
-        size="small"
-        defaultActiveKey={outlineSections.map((s) => s.key)}
-        items={outlineSections.map((section) => ({
-          key: section.key,
-          label: (
-            <Text strong style={{ fontSize: 12 }}>
-              {section.title}
-            </Text>
-          ),
-          children: (
-            <div style={{ paddingLeft: 8 }}>
-              {section.children.map((child) => (
-                <div
-                  key={child.key}
-                  style={{
-                    marginBottom: 6,
-                    paddingLeft: child.level === 2 ? 8 : 16,
-                    borderLeft:
-                      child.level === 2
-                        ? '2px solid #d9d9d9'
-                        : '1px solid #f0f0f0',
-                  }}
-                >
-                  <Text style={{ fontSize: 11, color: '#666' }}>
-                    {child.title}
-                  </Text>
-                  {child.children.length > 0 && (
-                    <div style={{ paddingLeft: 12 }}>
-                      {child.children.map((sub) => (
-                        <Text
-                          key={sub.key}
-                          style={{
-                            fontSize: 10,
-                            color: '#999',
-                            display: 'block',
-                            marginTop: 2,
-                          }}
-                        >
-                          - {sub.title}
-                        </Text>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ),
-        }))}
-      />
+      <div>
+        {/* Paper title header */}
+        {titleSection && (
+          <div style={{ textAlign: 'center', padding: '0 0 12px', borderBottom: '1px solid #f0f0f0', marginBottom: 8 }}>
+            <Text strong style={{ fontSize: 13 }}>{titleSection.title}</Text>
+          </div>
+        )}
+        <Collapse
+          size="small"
+          defaultActiveKey={bodySections.map((s) => s.key)}
+          items={bodySections.map((section) => ({
+            key: section.key,
+            label: (
+              <Text strong style={{ fontSize: 12 }}>{section.title}</Text>
+            ),
+            children: (
+              <div style={{ paddingLeft: 4 }}>
+                {section.content && (
+                  <Paragraph style={{ fontSize: 11, color: '#888', marginBottom: 8, whiteSpace: 'pre-wrap' }}
+                    ellipsis={{ rows: 3 }}>
+                    {section.content}
+                  </Paragraph>
+                )}
+                {section.children.map((child) => (
+                  <div key={child.key} style={{
+                    marginBottom: 6, paddingLeft: 8,
+                    borderLeft: '2px solid #e8e8e8',
+                  }}>
+                    <Text style={{ fontSize: 11, color: '#555' }}>{child.title}</Text>
+                    {child.content && (
+                      <Paragraph style={{ fontSize: 10, color: '#999', margin: '2px 0 0', whiteSpace: 'pre-wrap' }}
+                        ellipsis={{ rows: 2 }}>
+                        {child.content}
+                      </Paragraph>
+                    )}
+                    {child.children.length > 0 && (
+                      <div style={{ paddingLeft: 8 }}>
+                        {child.children.map((sub) => (
+                          <div key={sub.key} style={{ marginTop: 2 }}>
+                            <Text style={{ fontSize: 10, color: '#999' }}>- {sub.title}</Text>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ),
+          }))}
+        />
+      </div>
     );
   };
 

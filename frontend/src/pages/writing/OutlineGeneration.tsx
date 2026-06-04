@@ -13,6 +13,7 @@ import {
   Input,
   Upload,
   Empty,
+  Spin,
 } from 'antd';
 import {
   FileTextOutlined,
@@ -35,7 +36,7 @@ import { THESIS_TYPES, LENGTH_OPTIONS, LANGUAGES, DISCIPLINES } from '../../conf
 import ReferenceUpload, { type VerifiedReference } from './ReferenceUpload';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,9 +58,17 @@ function findLabel<T extends { value: string; label: string }>(
 }
 
 function parseMarkdownOutline(markdown: string): { sections: OutlineSection[] } {
-  const lines = markdown.split('\n').filter(Boolean);
+  const lines = markdown.split('\n');
   const sections: OutlineSection[] = [];
   let currentSection: OutlineSection | null = null;
+  let currentH2: OutlineSection | null = null;
+  let contentBuffer: string[] = [];
+
+  const flushContent = (target: OutlineSection) => {
+    const text = contentBuffer.join('\n').trim();
+    if (text) target.content = text;
+    contentBuffer = [];
+  };
 
   for (const line of lines) {
     const h1Match = line.match(/^#\s+(.+)/);
@@ -67,57 +76,69 @@ function parseMarkdownOutline(markdown: string): { sections: OutlineSection[] } 
     const h3Match = line.match(/^###\s+(.+)/);
 
     if (h1Match) {
-      if (currentSection) sections.push(currentSection);
+      // Flush pending content to previous h2 or h1
+      if (currentH2) { flushContent(currentH2); currentH2 = null; }
+      else if (currentSection) flushContent(currentSection);
+
       currentSection = {
         key: `sec-${sections.length}`,
         title: h1Match[1].trim(),
         level: 1,
         children: [],
-        raw: line,
+        content: '',
       };
+      sections.push(currentSection);
     } else if (h2Match) {
+      // Flush to previous h2
+      if (currentH2) { flushContent(currentH2); }
+
       const child: OutlineSection = {
-        key: `${currentSection?.key ?? 's'}-${currentSection?.children.length ?? 0}`,
+        key: `h2-${currentSection?.children.length ?? 0}`,
         title: h2Match[1].trim(),
         level: 2,
         children: [],
-        raw: line,
+        content: '',
       };
       if (currentSection) {
         currentSection.children.push(child);
+        currentH2 = child;
       } else {
+        // h2 without h1 — treat as top-level
         currentSection = {
           key: `sec-${sections.length}`,
           title: child.title,
           level: 1,
           children: [],
-          raw: line,
+          content: '',
         };
         sections.push(currentSection);
+        currentH2 = null;
       }
     } else if (h3Match) {
-      const child: OutlineSection = {
-        key: `h3-${sections.length}-${currentSection?.children.length ?? 0}`,
+      if (currentH2) flushContent(currentH2);
+      const sub: OutlineSection = {
+        key: `h3-${currentH2?.children.length ?? 0}`,
         title: h3Match[1].trim(),
         level: 3,
         children: [],
-        raw: line,
+        content: '',
       };
-      if (currentSection?.children.length) {
-        const lastChild =
-          currentSection.children[currentSection.children.length - 1];
-        if (lastChild.level === 2) {
-          lastChild.children.push(child);
-        } else {
-          currentSection.children.push(child);
-        }
+      if (currentH2) {
+        currentH2.children.push(sub);
       } else if (currentSection) {
-        currentSection.children.push(child);
+        currentSection.children.push(sub);
       }
+      currentH2 = null;
+    } else {
+      // Content line — append to buffer
+      contentBuffer.push(line);
     }
   }
 
-  if (currentSection) sections.push(currentSection);
+  // Flush remaining
+  if (currentH2) flushContent(currentH2);
+  else if (currentSection) flushContent(currentSection);
+
   return { sections };
 }
 
@@ -126,7 +147,7 @@ interface OutlineSection {
   title: string;
   level: number;
   children: OutlineSection[];
-  raw: string;
+  content: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -280,59 +301,80 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
 
     if (sections.length === 0) {
       return (
-        <pre
-          style={{
-            whiteSpace: 'pre-wrap',
-            lineHeight: 1.8,
-            background: '#fafafa',
-            padding: 16,
-            borderRadius: 8,
-          }}
-        >
+        <pre style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, background: '#fafafa', padding: 16, borderRadius: 8 }}>
           {outlineContent}
         </pre>
       );
     }
 
+    // First section is the paper title — display as a header, not a collapsible panel
+    const [titleSection, ...bodySections] = sections;
+
     return (
-      <Collapse
-        size="small"
-        items={sections.map((section) => ({
-          key: section.key,
-          label: (
-            <Space>
-              <Text strong>{section.title}</Text>
-              {section.children.length > 0 && (
-                <Tag>{section.children.length} 小节</Tag>
-              )}
-            </Space>
-          ),
-          children: (
-            <div>
-              {section.children.map((child) => (
-                <Card
-                  key={child.key}
-                  size="small"
-                  style={{ marginBottom: 8 }}
-                  title={
-                    <Text style={{ fontSize: 13 }}>
-                      {child.title}
-                    </Text>
-                  }
-                >
-                  {child.children.length > 0 && (
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {child.children.map((sub) => (
-                        <li key={sub.key}>{sub.title}</li>
-                      ))}
-                    </ul>
+      <div>
+        {/* Paper title — standalone header */}
+        <div style={{ textAlign: 'center', marginBottom: 20, padding: '16px 0', borderBottom: '2px solid #1a1a2e' }}>
+          <Text strong style={{ fontSize: 18, color: '#1a1a2e' }}>{titleSection.title}</Text>
+          {titleSection.content && (
+            <Paragraph style={{ whiteSpace: 'pre-wrap', color: '#666', marginTop: 8, fontSize: 14 }}>
+              {titleSection.content}
+            </Paragraph>
+          )}
+        </div>
+
+        {/* Body sections — collapsible panels */}
+        {bodySections.length > 0 && (
+          <Collapse
+            size="small"
+            defaultActiveKey={bodySections.map(s => s.key)}
+            items={bodySections.map((section) => ({
+              key: section.key,
+              label: (
+                <Space>
+                  <Text strong>{section.title}</Text>
+                  {section.children.length > 0 && (
+                    <Tag>{section.children.length} 小节</Tag>
                   )}
-                </Card>
-              ))}
-            </div>
-          ),
-        }))}
-      />
+                </Space>
+              ),
+              children: (
+                <div>
+                  {section.content && (
+                    <Paragraph style={{ whiteSpace: 'pre-wrap', color: '#555', marginBottom: 16, lineHeight: 1.8 }}>
+                      {section.content}
+                    </Paragraph>
+                  )}
+                  {section.children.map((child) => (
+                    <Card key={child.key} size="small" style={{ marginBottom: 8 }}
+                      title={<Text style={{ fontSize: 13 }}>{child.title}</Text>}
+                    >
+                      {child.content && (
+                        <Paragraph style={{ whiteSpace: 'pre-wrap', color: '#555', marginBottom: 12, lineHeight: 1.7, fontSize: 13 }}>
+                          {child.content}
+                        </Paragraph>
+                      )}
+                      {child.children.length > 0 && (
+                        <ul style={{ margin: 0, paddingLeft: 20 }}>
+                          {child.children.map((sub) => (
+                            <li key={sub.key} style={{ marginBottom: 6 }}>
+                              <Text strong style={{ fontSize: 13 }}>{sub.title}</Text>
+                              {sub.content && (
+                                <div style={{ whiteSpace: 'pre-wrap', color: '#777', fontSize: 12, marginTop: 2 }}>
+                                  {sub.content}
+                                </div>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              ),
+            }))}
+          />
+        )}
+      </div>
     );
   };
 
@@ -389,6 +431,9 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
           setReferencesUploaded(true);
         }}
       />
+
+      {/* ---- References List (uploaded + retrieved) ---- */}
+      <ReferencesListCard projectId={project.id} serviceToken={serviceToken} />
 
       {/* ---- Style Reference Upload ---- */}
       <Card
@@ -525,5 +570,124 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
     </div>
   );
 };
+
+// =========================================================================
+// ReferencesListCard — show user-uploaded + auto-retrieved references
+// =========================================================================
+import { List, Badge, Tooltip } from 'antd';
+import { LinkOutlined, UploadOutlined as UplIcon, SearchOutlined as SearchIcon } from '@ant-design/icons';
+function ReferencesListCard({ projectId, serviceToken }: { projectId: number; serviceToken: string }) {
+  const [refs, setRefs] = useState<{ uploaded: any[]; retrieved: any[] }>({ uploaded: [], retrieved: [] });
+  const [loading, setLoading] = useState(true);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!projectId) return;
+    setLoading(true);
+    fetch(`/api/ai/thesis/${projectId}/references?token=${encodeURIComponent(serviceToken)}`)
+      .then(r => r.json())
+      .then(d => { setRefs({ uploaded: d.uploaded || [], retrieved: d.retrieved || [] }); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [projectId, serviceToken]);
+
+  const allRefs = [
+    ...refs.uploaded.map((r: any, i: number) => ({ ...r, _source: 'uploaded', _key: `up-${i}` })),
+    ...refs.retrieved.map((r: any, i: number) => ({ ...r, _source: 'retrieved', _key: `ret-${i}` })),
+  ];
+
+  if (loading) return <Card size="small" title="参考文献" style={{ marginBottom: 16 }}><Spin size="small" /></Card>;
+  if (allRefs.length === 0) return null;
+
+  return (
+    <Card
+      size="small"
+      title={<Space>📚 参考文献 <Tag>{allRefs.length} 篇</Tag></Space>}
+      style={{ marginBottom: 16 }}
+      styles={{ body: { padding: 0 } }}
+    >
+      <List
+        size="small"
+        dataSource={allRefs}
+        renderItem={(ref: any) => {
+          const isExpanded = expandedKey === ref._key;
+          const isUploaded = ref._source === 'uploaded';
+          return (
+            <div key={ref._key} style={{ borderBottom: '1px solid #f0f0f0' }}>
+              {/* Title row — always visible */}
+              <div
+                onClick={() => setExpandedKey(isExpanded ? null : ref._key)}
+                style={{
+                  padding: '10px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                  background: isExpanded ? '#fafafa' : 'transparent',
+                  transition: 'background 0.2s',
+                }}
+              >
+                <Badge status={isUploaded ? 'processing' : 'default'}
+                  title={isUploaded ? '用户上传' : '系统检索'} />
+                <Text style={{ flex: 1, fontSize: 13 }}
+                  ellipsis={{ tooltip: ref.title || ref.formatted }}>
+                  {ref.title || (ref.formatted || '').substring(0, 80) + '...'}
+                </Text>
+                {isUploaded
+                  ? <Tooltip title="用户上传"><UplIcon style={{ color: '#1890ff', fontSize: 12 }} /></Tooltip>
+                  : <Tooltip title="系统检索"><SearchIcon style={{ color: '#999', fontSize: 12 }} /></Tooltip>}
+                {ref.doi && (
+                  <a href={`https://doi.org/${ref.doi}`} target="_blank" rel="noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    style={{ fontSize: 12 }}><LinkOutlined /></a>
+                )}
+                {ref.link && !ref.doi && (
+                  <a href={ref.link} target="_blank" rel="noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    style={{ fontSize: 12 }}><LinkOutlined /></a>
+                )}
+              </div>
+              {/* Expanded detail */}
+              {isExpanded && (
+                <div style={{ padding: '12px 16px 16px 40px', background: '#fafafa' }}>
+                  <Descriptions column={1} size="small">
+                    {ref.authors && (
+                      <Descriptions.Item label="作者">
+                        {Array.isArray(ref.authors) ? ref.authors.join(', ') : ref.authors}
+                      </Descriptions.Item>
+                    )}
+                    {ref.year && <Descriptions.Item label="年份">{ref.year}</Descriptions.Item>}
+                    {ref.source && <Descriptions.Item label="来源">{ref.source}</Descriptions.Item>}
+                    {ref.journal && <Descriptions.Item label="期刊">{ref.journal}</Descriptions.Item>}
+                    {ref.database && <Descriptions.Item label="数据库">{ref.database}</Descriptions.Item>}
+                    {ref.verified !== undefined && (
+                      <Descriptions.Item label="验证状态">
+                        {ref.verified ? <Tag color="green">已通过</Tag>
+                          : ref.skipped_verification ? <Tag color="orange">跳过验证</Tag>
+                            : <Tag color="red">未验证</Tag>}
+                      </Descriptions.Item>
+                    )}
+                    {ref.abstract_preview && (
+                      <Descriptions.Item label="摘要">
+                        <Paragraph style={{ fontSize: 12, margin: 0 }} ellipsis={{ rows: 4 }}>
+                          {ref.abstract_preview}
+                        </Paragraph>
+                      </Descriptions.Item>
+                    )}
+                    {ref.similarity_score !== undefined && (
+                      <Descriptions.Item label="匹配度">{ref.similarity_score}</Descriptions.Item>
+                    )}
+                    {ref.formatted && (
+                      <Descriptions.Item label="格式化引用">
+                        <Text style={{ fontSize: 12 }}>{ref.formatted}</Text>
+                      </Descriptions.Item>
+                    )}
+                  </Descriptions>
+                </div>
+              )}
+            </div>
+          );
+        }}
+      />
+    </Card>
+  );
+}
+
 
 export default OutlineGeneration;

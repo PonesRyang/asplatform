@@ -28,7 +28,7 @@ export async function getProjectSteps(projectId: number, token: string): Promise
 }
 
 export async function generateOutline(data: ThesisOutlineRequest): Promise<{ outline: string }> {
-  const response = await api.post<{ outline: string }>('/api/ai/thesis/outline/generate', data)
+  const response = await api.post<{ outline: string }>('/api/ai/thesis/outline', data)
   return response.data
 }
 
@@ -38,7 +38,7 @@ export async function saveOutline(data: ThesisOutlineRequest & { outline: string
 }
 
 export async function generateFulltext(data: ThesisFullTextRequest): Promise<{ full_text: string }> {
-  const response = await api.post<{ full_text: string }>('/api/ai/thesis/fulltext/generate', data)
+  const response = await api.post<{ full_text: string }>('/api/ai/thesis/fulltext', data)
   return response.data
 }
 

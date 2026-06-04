@@ -53,8 +53,11 @@ export interface ThesisOutlineRequest {
 
 export interface ThesisFullTextRequest {
   project_id: number
-  token: string
-  sections?: string
+  token?: string
+  outline: string
+  style?: string
+  references?: any[]
+  style_example?: any
 }
 
 export interface ThesisRefineRequest {

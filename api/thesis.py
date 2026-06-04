@@ -1026,6 +1026,54 @@ async def get_thesis_steps(project_id: int, token: Optional[str] = None, db: Ses
     return db.query(ThesisStep).filter(ThesisStep.project_id == project_id).order_by(ThesisStep.step_num.asc(), ThesisStep.created_at.desc()).all()
 
 
+@router.get("/{project_id}/references")
+async def get_project_references(project_id: int, token: Optional[str] = None, db: Session = Depends(get_db), current_user: Optional[AdminUser] = Depends(get_optional_admin)):
+    """Get all references for a project — both user-uploaded and auto-retrieved."""
+    token_record = None
+    if not current_user:
+        token_record = await verify_service_access(db, token, "ai")
+    else:
+        check_permission(current_user, "ai")
+
+    query = db.query(ThesisProject).filter(ThesisProject.id == project_id)
+    if token_record:
+        query = query.filter(ThesisProject.token_id == token_record.id)
+    elif current_user:
+        if current_user.group and current_user.group.name != "SuperAdmin":
+            query = query.filter(ThesisProject.admin_id == current_user.id)
+
+    project = query.first()
+    if not project: raise HTTPException(status_code=404, detail="Project not found")
+
+    # 1. User-uploaded references
+    uploaded_refs = []
+    if project.reference_files:
+        try:
+            uploaded_refs = json.loads(project.reference_files)
+        except (json.JSONDecodeError, TypeError):
+            uploaded_refs = []
+
+    # 2. Auto-retrieved literature
+    real_citations = await literature_service.search_literature(project.topic, max_results=15)
+
+    # 3. Style example
+    style_example = None
+    if project.style_example_file:
+        try:
+            style_example = json.loads(project.style_example_file)
+        except (json.JSONDecodeError, TypeError):
+            style_example = None
+
+    return {
+        "project_id": project_id,
+        "uploaded": uploaded_refs,
+        "retrieved": real_citations,
+        "style_example": style_example,
+        "uploaded_count": len(uploaded_refs),
+        "retrieved_count": len(real_citations),
+    }
+
+
 @router.post("/refine")
 async def refine_thesis_part(req: ThesisRefineRequest, db: Session = Depends(get_db), current_user: Optional[AdminUser] = Depends(get_optional_admin)):
     token_record = None
