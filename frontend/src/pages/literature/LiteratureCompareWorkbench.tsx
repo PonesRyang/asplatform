@@ -26,6 +26,7 @@ import {
 import type { UploadFile, RcFile } from 'antd/es/upload';
 import * as literatureApi from '../../services/literatureApi';
 import type { DocumentItem } from '../../types/literature';
+import { useServiceToken } from '../../hooks/useServiceToken';
 
 const { Dragger } = Upload;
 const { Title, Paragraph, Text } = Typography;
@@ -158,6 +159,8 @@ function extractResultString(data: Record<string, unknown>): string {
 // Component
 // ---------------------------------------------------------------------------
 export default function LiteratureCompareWorkbench() {
+  const { serviceToken } = useServiceToken();
+
   // ---- Upload / extraction state ------------------------------------------
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [extractedDocs, setExtractedDocs] = useState<DocumentItem[]>([]);
@@ -213,7 +216,7 @@ export default function LiteratureCompareWorkbench() {
 
       setIsExtracting(true);
       literatureApi
-        .extractLitFiles(rawFiles)
+        .extractLitFiles(rawFiles, serviceToken)
         .then((docs) => {
           setExtractedDocs(docs);
           setFileList((prev) =>
@@ -236,7 +239,7 @@ export default function LiteratureCompareWorkbench() {
 
       return false;
     },
-    [fileList],
+    [fileList, serviceToken],
   );
 
   /** Remove a file */
@@ -251,7 +254,7 @@ export default function LiteratureCompareWorkbench() {
       if (rawFiles.length > 0) {
         setIsExtracting(true);
         literatureApi
-          .extractLitFiles(rawFiles)
+          .extractLitFiles(rawFiles, serviceToken)
           .then((docs) => {
             setExtractedDocs(docs);
             message.success(`剩余 ${docs.length} 篇文献`);
@@ -266,7 +269,7 @@ export default function LiteratureCompareWorkbench() {
         setEndDocIndex(undefined);
       }
     },
-    [fileList],
+    [fileList, serviceToken],
   );
 
   /** Trigger comparison */
@@ -279,7 +282,7 @@ export default function LiteratureCompareWorkbench() {
     setCompareResult(null);
     setGapResult(null);
     try {
-      const data = await literatureApi.compareLiterature(extractedDocs);
+      const data = await literatureApi.compareLiterature(extractedDocs, serviceToken);
       const result = extractResultString(data);
       setCompareResult(result);
       message.success('对比分析完成');
@@ -293,7 +296,7 @@ export default function LiteratureCompareWorkbench() {
     } finally {
       setIsComparing(false);
     }
-  }, [extractedDocs]);
+  }, [extractedDocs, serviceToken]);
 
   /** Trigger gap analysis */
   const handleGapAnalysis = useCallback(async () => {
@@ -319,7 +322,7 @@ export default function LiteratureCompareWorkbench() {
         documents: [startDoc, endDoc],
         research_area: compareResult,
         instructions: `起点文献: ${startDoc.title}, 终点文献: ${endDoc.title}`,
-      });
+      }, serviceToken);
       const result = extractResultString(data);
       setGapResult(result);
       message.success('差距规划已生成');
@@ -329,7 +332,7 @@ export default function LiteratureCompareWorkbench() {
     } finally {
       setIsGapAnalyzing(false);
     }
-  }, [startDocIndex, endDocIndex, compareResult, extractedDocs]);
+  }, [startDocIndex, endDocIndex, compareResult, extractedDocs, serviceToken]);
 
   // ---- Derived ------------------------------------------------------------
   const canCompare = extractedDocs.length >= 2 && !isComparing && !isExtracting;

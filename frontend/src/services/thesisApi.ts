@@ -9,7 +9,7 @@ import type {
 } from '../types/thesis'
 
 export async function createProject(data: ThesisCreateRequest): Promise<ThesisProject> {
-  const response = await api.post<ThesisProject>('/api/ai/thesis', data)
+  const response = await api.post<ThesisProject>('/api/ai/thesis/create', data)
   return response.data
 }
 
@@ -77,7 +77,9 @@ export async function uploadReferences(formData: FormData): Promise<any> {
   return response.data
 }
 
-export async function validateReferences(projectId: number): Promise<{ valid_count: number; invalid_count: number; details: unknown[] }> {
-  const response = await api.post<{ valid_count: number; invalid_count: number; details: unknown[] }>(`/api/ai/thesis/${projectId}/references/validate`)
+export async function validateReferences(projectId: number, token?: string): Promise<{ project_id: number; project_title: string; validation: unknown }> {
+  const response = await api.post<{ project_id: number; project_title: string; validation: unknown }>(`/api/ai/thesis/${projectId}/validate-references`, null, {
+    params: { token },
+  })
   return response.data
 }
