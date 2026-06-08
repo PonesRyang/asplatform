@@ -1,10 +1,11 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, Menu, Button, Typography, Spin, List, message, Popconfirm } from 'antd';
+import { Layout, Menu, Button, Typography, Spin, List } from 'antd';
 import {
   ExperimentOutlined, EditOutlined, BookOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined,
-  FileTextOutlined, PlusOutlined, DeleteOutlined, ToolOutlined,
+  FileTextOutlined, PlusOutlined, ToolOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import ServiceTokenGuard from '../components/common/ServiceTokenGuard';
 import TokenQuotaBar from '../components/common/TokenQuotaBar';
@@ -35,6 +36,8 @@ function getKey(pathname: string) {
   for (const m of menuItems) if (pathname.startsWith(m.path)) return m.key;
   return 'bio';
 }
+
+const grantPrototypePath = '/prototypes/grant-pages/01-input-topic-info.html';
 
 function FrontendLayoutInner() {
   const navigate = useNavigate();
@@ -144,7 +147,15 @@ function FrontendLayoutInner() {
               onClick={() => setCollapsed(!collapsed)} style={{ fontSize: 16, width: 40, height: 40 }} />
             <TokenQuotaBar total={tokenInfo?.ai_quota ?? 0} used={tokenInfo?.used_quota ?? 0} />
           </div>
-          <Button type="text" icon={<LogoutOutlined />} onClick={() => { clearToken(); navigate('/'); }} danger>退出</Button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Button
+              icon={<EyeOutlined />}
+              onClick={() => window.open(grantPrototypePath, '_blank', 'noopener,noreferrer')}
+            >
+              查看课题申报原型
+            </Button>
+            <Button type="text" icon={<LogoutOutlined />} onClick={() => { clearToken(); navigate('/'); }} danger>退出</Button>
+          </div>
         </Header>
         <Content style={{ margin: 24, padding: 24, background: '#fff', borderRadius: 8, minHeight: 280 }}>
           <Suspense fallback={<PageFallback />}>

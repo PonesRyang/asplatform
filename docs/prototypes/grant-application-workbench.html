@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>课题申报工作台原型</title>
+  <style>
+    :root {
+      --primary: #1a1a2e;
+      --accent: #e94560;
+      --blue: #1677ff;
+      --green: #52c41a;
+      --orange: #faad14;
+      --bg: #f4f6f9;
+      --panel: #ffffff;
+      --line: #dfe3eb;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --soft: #f8fafc;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+    }
+
+    .sider {
+      background: var(--primary);
+      color: #fff;
+      padding: 18px 14px;
+    }
+
+    .brand {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      font-weight: 700;
+      font-size: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      margin-bottom: 14px;
+    }
+
+    .nav-item {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      border-radius: 6px;
+      color: rgba(255, 255, 255, 0.72);
+      margin-bottom: 6px;
+    }
+
+    .nav-item.active {
+      background: rgba(255, 255, 255, 0.13);
+      color: #fff;
+      border-left: 3px solid #4ea1ff;
+    }
+
+    .main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      height: 64px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+    }
+
+    .quota {
+      width: 220px;
+      height: 8px;
+      background: #edf1f7;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .quota span {
+      display: block;
+      width: 42%;
+      height: 100%;
+      background: var(--blue);
+    }
+
+    .workspace {
+      padding: 24px;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.3;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .step {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 72px;
+    }
+
+    .step.active {
+      border-color: var(--blue);
+      box-shadow: inset 0 3px 0 var(--blue);
+    }
+
+    .step.done {
+      border-color: #b7eb8f;
+      box-shadow: inset 0 3px 0 var(--green);
+    }
+
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #eef2f7;
+      color: var(--muted);
+      font-size: 12px;
+      margin-right: 6px;
+    }
+
+    .step.active .step-num {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .step.done .step-num {
+      background: var(--green);
+      color: #fff;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 310px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .fund-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .fund {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+      min-height: 78px;
+    }
+
+    .fund.selected {
+      border-color: var(--blue);
+      background: #f0f6ff;
+    }
+
+    .fund strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .input {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 11px;
+      background: #fff;
+    }
+
+    .input.textarea {
+      min-height: 70px;
+    }
+
+    .keyword-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid #cfd8e6;
+      padding: 0 10px;
+      background: #fff;
+      color: #344054;
+      font-size: 12px;
+    }
+
+    .tag.checked {
+      background: #eaf4ff;
+      border-color: #91caff;
+      color: #0958d9;
+    }
+
+    .tag.and {
+      background: #fff7e6;
+      border-color: #ffd591;
+      color: #ad6800;
+    }
+
+    .topic-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .topic-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff;
+      min-height: 210px;
+    }
+
+    .topic-card.selected {
+      border-color: var(--accent);
+      box-shadow: inset 0 3px 0 var(--accent);
+    }
+
+    .topic-card h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .meter {
+      display: grid;
+      grid-template-columns: 64px 1fr 34px;
+      gap: 8px;
+      align-items: center;
+      margin: 8px 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .bar {
+      height: 6px;
+      background: #eef2f7;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      background: var(--blue);
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .section-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: var(--soft);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .side-stack {
+      position: sticky;
+      top: 84px;
+    }
+
+    .summary-item {
+      padding: 10px 0;
+      border-bottom: 1px solid #eef1f5;
+    }
+
+    .summary-item:last-child {
+      border-bottom: 0;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding-top: 6px;
+    }
+
+    .btn {
+      height: 36px;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 6px;
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .btn.blue {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+    }
+
+    @media (max-width: 1100px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sider {
+        display: none;
+      }
+
+      .content-grid,
+      .report-grid,
+      .keyword-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .steps,
+      .fund-grid,
+      .topic-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      .workspace {
+        padding: 14px;
+      }
+
+      .steps,
+      .fund-grid,
+      .form-grid,
+      .topic-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sider">
+      <div class="brand">学术辅助平台</div>
+      <div class="nav-item">生信分析</div>
+      <div class="nav-item">AI 写作</div>
+      <div class="nav-item active">课题申报</div>
+      <div class="nav-item">AI 工具</div>
+      <div class="nav-item">文献分析</div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <strong>课题申报工作台</strong>
+          <span class="muted"> 国自然 / 省市级课题的选题与申请书生成</span>
+        </div>
+        <div class="quota"><span></span></div>
+      </div>
+
+      <div class="workspace">
+        <div class="header-row">
+          <div>
+            <h1>肿瘤免疫微环境中 T 细胞耗竭机制及干预策略研究</h1>
+            <div class="muted">草稿自动保存 · 最近更新 10:28 · 示例原型</div>
+          </div>
+          <button class="btn">保存草稿</button>
+        </div>
+
+        <section class="steps">
+          <div class="step done"><span class="step-num">1</span><strong>输入选题信息</strong><div class="muted">基金类型、方向、变量</div></div>
+          <div class="step active"><span class="step-num">2</span><strong>选题关键词</strong><div class="muted">AND/OR 关键词筛选</div></div>
+          <div class="step"><span class="step-num">3</span><strong>基金选题</strong><div class="muted">生成并比较候选课题</div></div>
+          <div class="step"><span class="step-num">4</span><strong>选题报告</strong><div class="muted">创新性与可行性分析</div></div>
+          <div class="step"><span class="step-num">5</span><strong>申请书生成</strong><div class="muted">大纲和章节正文</div></div>
+        </section>
+
+        <div class="content-grid">
+          <div>
+            <section class="panel">
+              <div class="panel-title">1. 输入选题信息 <span class="muted">第一步表单结构</span></div>
+              <div class="fund-grid">
+                <div class="fund selected"><strong>国自然-青年基金</strong><span class="muted">20-30 万</span></div>
+                <div class="fund"><strong>国自然-面上项目</strong><span class="muted">50-80 万</span></div>
+                <div class="fund"><strong>国自然-地区项目</strong><span class="muted">30-40 万</span></div>
+                <div class="fund"><strong>省市级项目</strong><span class="muted">10-40 万</span></div>
+                <div class="fund"><strong>其他</strong><span class="muted">自定义项目</span></div>
+              </div>
+              <div class="form-grid" style="margin-top: 14px;">
+                <div class="field">
+                  <label>研究领域 / 研究方向</label>
+                  <div class="input">医学科学部 / 肿瘤学 / 肿瘤免疫</div>
+                </div>
+                <div class="field">
+                  <label>疾病类型 / 名称</label>
+                  <div class="input">黑色素瘤</div>
+                </div>
+                <div class="field">
+                  <label>表型 / 科学问题</label>
+                  <div class="input">免疫治疗耐受</div>
+                </div>
+                <div class="field">
+                  <label>主变量类型与名称</label>
+                  <div class="input">细胞状态 · T 细胞耗竭</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">2. 选题关键词 <span class="muted">系统生成，用户筛选</span></div>
+              <div class="keyword-layout">
+                <div>
+                  <div class="muted" style="margin-bottom: 8px;">必要关键词 AND</div>
+                  <div class="tag-row">
+                    <span class="tag and">肿瘤免疫微环境</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="muted" style="margin-bottom: 8px;">可选关键词 OR</div>
+                  <div class="tag-row">
+                    <span class="tag checked">T细胞耗竭</span>
+                    <span class="tag checked">黑色素瘤</span>
+                    <span class="tag checked">CD8+ T细胞</span>
+                    <span class="tag checked">PD-1</span>
+                    <span class="tag checked">单细胞RNA测序</span>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top: 16px;">
+                <div class="muted" style="margin-bottom: 8px;">分组关键词池</div>
+                <div class="tag-row">
+                  <span class="tag checked">黑色素瘤</span>
+                  <span class="tag">非小细胞肺癌</span>
+                  <span class="tag">结直肠癌</span>
+                  <span class="tag checked">CD8+ T细胞</span>
+                  <span class="tag">调节性T细胞</span>
+                  <span class="tag checked">PD-1</span>
+                  <span class="tag">CTLA-4</span>
+                  <span class="tag checked">T细胞受体信号通路</span>
+                  <span class="tag">PD-1/PD-L1通路</span>
+                  <span class="tag checked">免疫检查点抑制剂</span>
+                  <span class="tag">CAR-T细胞治疗</span>
+                  <span class="tag checked">单细胞RNA测序</span>
+                  <span class="tag">空间转录组学</span>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="btn">重新拓展关键词</button>
+                <button class="btn primary">生成创新选题</button>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">3. 基金选题 <span class="muted">候选课题比较</span></div>
+              <div class="topic-grid">
+                <article class="topic-card selected">
+                  <h3>PD-1 介导的 CD8+ T 细胞耗竭重塑黑色素瘤免疫微环境的机制研究</h3>
+                  <p class="muted">聚焦免疫检查点、细胞状态和微环境互作，适合青年基金的小切口机制研究。</p>
+                  <div class="meter"><span>创新性</span><div class="bar"><span style="width: 86%;"></span></div><strong>86</strong></div>
+                  <div class="meter"><span>可行性</span><div class="bar"><span style="width: 78%;"></span></div><strong>78</strong></div>
+                  <div class="meter"><span>匹配度</span><div class="bar"><span style="width: 82%;"></span></div><strong>82</strong></div>
+                </article>
+                <article class="topic-card">
+                  <h3>单细胞转录组解析肿瘤浸润 T 细胞耗竭谱系转化及干预窗口</h3>
+                  <p class="muted">偏技术驱动，适合已有单细胞数据或临床样本积累的课题组。</p>
+                  <div class="meter"><span>创新性</span><div class="bar"><span style="width: 80%;"></span></div><strong>80</strong></div>
+                  <div class="meter"><span>可行性</span><div class="bar"><span style="width: 72%;"></span></div><strong>72</strong></div>
+                  <div class="meter"><span>匹配度</span><div class="bar"><span style="width: 76%;"></span></div><strong>76</strong></div>
+                </article>
+                <article class="topic-card">
+                  <h3>TCR 信号衰减驱动免疫检查点治疗耐受的分子机制与逆转策略</h3>
+                  <p class="muted">突出治疗耐受和转化潜力，需要更强前期实验基础支撑。</p>
+                  <div class="meter"><span>创新性</span><div class="bar"><span style="width: 83%;"></span></div><strong>83</strong></div>
+                  <div class="meter"><span>可行性</span><div class="bar"><span style="width: 68%;"></span></div><strong>68</strong></div>
+                  <div class="meter"><span>匹配度</span><div class="bar"><span style="width: 74%;"></span></div><strong>74</strong></div>
+                </article>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">4-5. 选题报告与申请书生成 <span class="muted">渐进式生成</span></div>
+              <div class="report-grid">
+                <div>
+                  <strong>选题报告</strong>
+                  <div class="section-list" style="margin-top: 10px;">
+                    <div class="section"><span>研究背景与科学问题</span><span class="muted">已生成</span></div>
+                    <div class="section"><span>国内外研究现状</span><span class="muted">已生成</span></div>
+                    <div class="section"><span>创新性与可行性评价</span><span class="muted">待确认</span></div>
+                    <div class="section"><span>基金匹配与风险建议</span><span class="muted">待生成</span></div>
+                  </div>
+                </div>
+                <div>
+                  <strong>申请书章节</strong>
+                  <div class="section-list" style="margin-top: 10px;">
+                    <div class="section"><span>立项依据</span><span class="muted">生成大纲</span></div>
+                    <div class="section"><span>研究内容与目标</span><span class="muted">生成大纲</span></div>
+                    <div class="section"><span>拟解决关键科学问题</span><span class="muted">生成大纲</span></div>
+                    <div class="section"><span>技术路线与可行性</span><span class="muted">生成大纲</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="btn">局部改写</button>
+                <button class="btn blue">导出 Word</button>
+                <button class="btn primary">继续生成正文</button>
+              </div>
+            </section>
+          </div>
+
+          <aside class="side-stack">
+            <section class="panel">
+              <div class="panel-title">当前选择</div>
+              <div class="summary-item">
+                <div class="muted">课题类型</div>
+                <strong>国自然-青年基金</strong>
+              </div>
+              <div class="summary-item">
+                <div class="muted">研究方向</div>
+                <strong>医学科学部 / 肿瘤学 / 肿瘤免疫</strong>
+              </div>
+              <div class="summary-item">
+                <div class="muted">主变量</div>
+                <strong>T 细胞耗竭</strong>
+              </div>
+              <div class="summary-item">
+                <div class="muted">已选关键词</div>
+                <div class="tag-row" style="margin-top: 8px;">
+                  <span class="tag checked">PD-1</span>
+                  <span class="tag checked">CD8+ T细胞</span>
+                  <span class="tag checked">单细胞RNA测序</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title">生成策略</div>
+              <div class="summary-item">
+                <strong>分步生成</strong>
+                <div class="muted">关键词、选题、报告、申请书章节分别调用 AI。</div>
+              </div>
+              <div class="summary-item">
+                <strong>可回退</strong>
+                <div class="muted">每一步保留状态，支持回退修改后重新生成。</div>
+              </div>
+              <div class="summary-item">
+                <strong>可导出</strong>
+                <div class="muted">报告和申请书支持后续导出 Word。</div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
