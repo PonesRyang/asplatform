@@ -579,8 +579,24 @@ function ProposalStatusTag({ section }: { section: GrantProposalSection }) {
   return <Tag color={colorMap[section.status]}>{labelMap[section.status]}</Tag>;
 }
 
-function ProposalPage({ project, onPrev, onExport, loading }: { project: GrantProject; onPrev: () => void; onExport: () => void; loading: boolean }) {
-  const activeSection = project.proposalSections[2] || project.proposalSections[0] || { title: '项目立项依据', markdown: '', status: 'pending', wordCount: 0, key: 'basis' } as GrantProposalSection;
+function ProposalPage({
+  project,
+  selectedSectionKey,
+  onSelectSection,
+  onPrev,
+  onExport,
+  loading,
+}: {
+  project: GrantProject;
+  selectedSectionKey: string | null;
+  onSelectSection: (sectionKey: string) => void;
+  onPrev: () => void;
+  onExport: () => void;
+  loading: boolean;
+}) {
+  const activeSection = project.proposalSections.find(section => section.key === selectedSectionKey)
+    || project.proposalSections[0]
+    || { title: '申请书章节', markdown: '', status: 'pending', wordCount: 0, key: 'empty' } as GrantProposalSection;
 
   return (
     <SectionCard
@@ -593,10 +609,13 @@ function ProposalPage({ project, onPrev, onExport, loading }: { project: GrantPr
             bordered
             dataSource={project.proposalSections}
             renderItem={section => (
-              <List.Item>
+              <List.Item
+                onClick={() => onSelectSection(section.key)}
+                style={{ cursor: 'pointer', background: activeSection.key === section.key ? '#e6f4ff' : 'transparent' }}
+              >
                 <Space direction="vertical" size={2} style={{ width: '100%' }}>
                   <Space style={{ justifyContent: 'space-between', width: '100%' }}>
-                    <Text strong>{section.title}</Text>
+                    <Text strong={activeSection.key === section.key}>{section.title}</Text>
                     <ProposalStatusTag section={section} />
                   </Space>
                   <Text type="secondary">{section.wordCount} 字</Text>
@@ -709,6 +728,7 @@ export default function GrantApplicationWorkbench() {
   const [projectSummaries, setProjectSummaries] = useState<GrantProjectSummary[]>([]);
   const [reportVersions, setReportVersions] = useState<GrantReportVersion[]>([]);
   const [selectedReportVersionId, setSelectedReportVersionId] = useState<number | null>(null);
+  const [selectedProposalSectionKey, setSelectedProposalSectionKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [bootstrapped, setBootstrapped] = useState(false);
 
@@ -783,6 +803,11 @@ export default function GrantApplicationWorkbench() {
     if (currentStep !== 'report' || project.id <= 0) return;
     loadReportHistory(project.id);
   }, [currentStep, project.id, serviceToken]);
+
+  useEffect(() => {
+    if (currentStep !== 'proposal' || selectedProposalSectionKey || project.proposalSections.length === 0) return;
+    setSelectedProposalSectionKey(project.proposalSections[0].key);
+  }, [currentStep, project.proposalSections, selectedProposalSectionKey]);
 
   const runStepAction = async (action: () => Promise<GrantProject>, nextStep: GrantStepKey, successText: string) => {
     if (!serviceToken) {
@@ -932,11 +957,24 @@ export default function GrantApplicationWorkbench() {
     }
   };
 
-  const handleReportNext = () => runStepAction(
-    () => generateGrantProposal(project.id, serviceToken!),
-    'proposal',
-    '基金申请书已生成',
-  );
+  const handleReportNext = async () => {
+    if (!serviceToken) {
+      message.warning('请先输入服务令牌');
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await generateGrantProposal(project.id, serviceToken);
+      setProject(data);
+      setSelectedProposalSectionKey(data.proposalSections[0]?.key || null);
+      message.success('基金申请书已生成');
+      navigate(`/frontend/grant/projects/${data.id}/proposal`);
+    } catch (error: any) {
+      message.error(error?.response?.data?.detail || error?.message || '基金申请书生成失败');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSelectTopic = async (topicId: string) => {
     if (!serviceToken) return;
@@ -983,11 +1021,11 @@ export default function GrantApplicationWorkbench() {
       case 'report':
         return <ReportPage project={project} versions={reportVersions} selectedVersionId={selectedReportVersionId} onSelectVersion={setSelectedReportVersionId} loading={loading} onPrev={prev} onNext={handleReportNext} />;
       case 'proposal':
-        return <ProposalPage project={project} loading={loading} onPrev={prev} onExport={handleExportWord} />;
+        return <ProposalPage project={project} selectedSectionKey={selectedProposalSectionKey} onSelectSection={setSelectedProposalSectionKey} loading={loading} onPrev={prev} onExport={handleExportWord} />;
       default:
         return <InputPage project={project} loading={loading} onNext={next} />;
     }
-  }, [currentStep, currentIndex, project, loading, reportVersions, selectedReportVersionId]);
+  }, [currentStep, currentIndex, project, loading, reportVersions, selectedReportVersionId, selectedProposalSectionKey]);
 
   if (!routeProjectId && !isNewProjectRoute) {
     return (
