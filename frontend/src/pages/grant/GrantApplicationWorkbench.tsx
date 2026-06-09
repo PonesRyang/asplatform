@@ -117,12 +117,14 @@ function ProjectHeader({
   project,
   currentStep,
   onStepChange,
+  onBackList,
   onExport,
   loading,
 }: {
   project: GrantProject;
   currentStep: GrantStepKey;
   onStepChange: (step: GrantStepKey) => void;
+  onBackList: () => void;
   onExport: () => void;
   loading: boolean;
 }) {
@@ -148,6 +150,7 @@ function ProjectHeader({
         </Col>
         <Col>
           <Space>
+            <Button onClick={onBackList}>返回列表</Button>
             <Button
               type="primary"
               icon={<ArrowRightOutlined />}
@@ -658,6 +661,10 @@ export default function GrantApplicationWorkbench() {
     navigate(`/frontend/grant/${step}`);
   };
 
+  const backToList = () => {
+    navigate('/frontend/grant');
+  };
+
   useEffect(() => {
     if (!serviceToken || bootstrapped) return;
 
@@ -857,7 +864,7 @@ export default function GrantApplicationWorkbench() {
 
   return (
     <div style={{ background: '#f5f7fb', margin: -24, padding: 24, minHeight: 'calc(100vh - 112px)' }}>
-      <ProjectHeader project={project} currentStep={currentStep} loading={loading} onStepChange={goStep} onExport={handleExportWord} />
+      <ProjectHeader project={project} currentStep={currentStep} loading={loading} onStepChange={goStep} onBackList={backToList} onExport={handleExportWord} />
 
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={18}>
