@@ -6,6 +6,7 @@ import {
   MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined,
   FileTextOutlined, PlusOutlined, ToolOutlined,
   EyeOutlined,
+  FundProjectionScreenOutlined,
 } from '@ant-design/icons';
 import ServiceTokenGuard from '../components/common/ServiceTokenGuard';
 import TokenQuotaBar from '../components/common/TokenQuotaBar';
@@ -20,6 +21,7 @@ const BioAnalysisWorkbench = lazy(() => import('../pages/bio/BioAnalysisWorkbenc
 const AIWritingWorkbench = lazy(() => import('../pages/writing/AIWritingWorkbench'));
 const LiteratureCompareWorkbench = lazy(() => import('../pages/literature/LiteratureCompareWorkbench'));
 const AITools = lazy(() => import('../pages/AITools'));
+const GrantApplicationWorkbench = lazy(() => import('../pages/grant/GrantApplicationWorkbench'));
 
 function PageFallback() {
   return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}><Spin /></div>;
@@ -28,6 +30,7 @@ function PageFallback() {
 const menuItems = [
   { key: 'bio', icon: <ExperimentOutlined />, label: '生信分析', path: '/frontend/bio' },
   { key: 'writing', icon: <EditOutlined />, label: 'AI 写作', path: '/frontend/writing' },
+  { key: 'grant', icon: <FundProjectionScreenOutlined />, label: '课题申报', path: '/frontend/grant' },
   { key: 'ai-tools', icon: <ToolOutlined />, label: 'AI 工具', path: '/frontend/ai-tools' },
   { key: 'lit-compare', icon: <BookOutlined />, label: '文献分析', path: '/frontend/lit-compare' },
 ];
@@ -174,6 +177,7 @@ function FrontendLayoutInner() {
                   }}
                 />
               } />
+              <Route path="grant/*" element={<GrantApplicationWorkbench />} />
               <Route path="ai-tools" element={<AITools />} />
               <Route path="lit-compare" element={<LiteratureCompareWorkbench />} />
               <Route path="/" element={<Navigate to="bio" replace />} />

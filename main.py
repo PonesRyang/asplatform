@@ -161,6 +161,7 @@ from api.admin import router as admin_router
 from api.ai import router as ai_router
 from api.topic import router as topic_router
 from api.thesis import router as thesis_router
+from api.grant import router as grant_router
 from api.literature import lit_router, enhance_router, lit_compare_router
 from api.bio import router as bio_router
 
@@ -169,6 +170,7 @@ app.include_router(admin_router)
 app.include_router(ai_router)
 app.include_router(topic_router)
 app.include_router(thesis_router)
+app.include_router(grant_router)
 app.include_router(lit_router)
 app.include_router(enhance_router)
 app.include_router(lit_compare_router)

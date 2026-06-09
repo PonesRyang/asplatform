@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-jose
+python-docx
+python-multipart
+pyyaml
+watchdog
+passlib[bcrypt]
+requests

@@ -37,6 +37,7 @@ class TokenRecord(Base):
     permissions = Column(String(255), default="all") # Comma separated permissions: "bio,ai"
     
     projects = relationship("ThesisProject", back_populates="token_owner")
+    grant_projects = relationship("GrantProject", back_populates="token_owner")
 
 class ThesisProject(Base):
     __tablename__ = "thesis_projects"
@@ -70,3 +71,46 @@ class ThesisStep(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     
     project = relationship("ThesisProject", back_populates="steps")
+
+
+class GrantProject(Base):
+    __tablename__ = "grant_projects"
+    id = Column(Integer, primary_key=True, index=True)
+    token_id = Column(Integer, ForeignKey("tokens.id"), nullable=True)
+    admin_id = Column(Integer, ForeignKey("admin_users.id"), nullable=True)
+    title = Column(String(255))
+    status = Column(String(64), default="draft")
+    current_step = Column(String(32), default="input")
+    fund_type = Column(String(64))
+    research_area_path = Column(Text)  # JSON string list
+    subject = Column(Text)
+    disease_path = Column(Text)  # JSON string list
+    phenotype = Column(String(255))
+    variable_type = Column(String(64))
+    variable_name = Column(String(255))
+    keywords_json = Column(Text, nullable=True)
+    references_json = Column(Text, nullable=True)
+    topics_json = Column(Text, nullable=True)
+    report_sections_json = Column(Text, nullable=True)
+    proposal_sections_json = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
+    token_owner = relationship("TokenRecord", back_populates="grant_projects")
+    admin_owner = relationship("AdminUser")
+    steps = relationship("GrantStep", back_populates="project", cascade="all, delete-orphan")
+
+
+class GrantStep(Base):
+    __tablename__ = "grant_steps"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("grant_projects.id"))
+    step_key = Column(String(32))
+    status = Column(String(64), default="ready")
+    input_json = Column(Text, nullable=True)
+    output_json = Column(Text, nullable=True)
+    raw_text = Column(Text, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
+
+    project = relationship("GrantProject", back_populates="steps")
