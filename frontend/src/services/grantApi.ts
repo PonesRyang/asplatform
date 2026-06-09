@@ -105,3 +105,10 @@ export async function generateGrantProposal(projectId: number, token: string): P
   const response = await api.post<GrantProjectApiResponse>(`/api/ai/grant/projects/${projectId}/proposal/generate`, { token })
   return fromApiProject(response.data)
 }
+
+export async function exportGrantProposalWord(projectId: number, token: string): Promise<Blob> {
+  const response = await api.post(`/api/ai/grant/projects/${projectId}/exports/word`, { token }, {
+    responseType: 'blob',
+  })
+  return response.data
+}

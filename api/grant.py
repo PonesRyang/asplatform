@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+import io
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+import docx
+from docx.oxml.ns import qn
+from docx.shared import Pt
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from api.dependencies import verify_service_access
@@ -216,6 +221,54 @@ def _mock_proposal_sections() -> List[Dict[str, Any]]:
         {"key": "route", "title": "技术路线图", "status": "needs_review", "wordCount": 240, "markdown": "Mermaid 图示待校验。若渲染失败，应展示源码并允许重新生成图示。"},
         {"key": "plan", "title": "年度研究计划及预期结果", "status": "ready", "wordCount": 620, "markdown": "第一年完成样本和模型建立；第二年解析关键机制节点；第三年完成干预验证和申请书成果总结。"},
     ]
+
+
+def _add_docx_paragraph(document, text: str, style: Optional[str] = None):
+    paragraph = document.add_paragraph(style=style)
+    run = paragraph.add_run(text)
+    run.font.name = "宋体"
+    run._element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
+    run.font.size = Pt(11)
+    return paragraph
+
+
+def _build_proposal_docx(project: GrantProject) -> io.BytesIO:
+    document = docx.Document()
+    styles = document.styles
+    styles["Normal"].font.name = "宋体"
+    styles["Normal"]._element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
+    styles["Normal"].font.size = Pt(11)
+
+    title = document.add_heading(project.title or "基金申请书", level=0)
+    title.alignment = 1
+
+    _add_docx_paragraph(document, f"项目类型：{project.fund_type or ''}")
+    _add_docx_paragraph(document, f"研究方向：{' / '.join(_json_loads(project.research_area_path, []))}")
+    _add_docx_paragraph(document, f"导出时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}")
+
+    document.add_paragraph("")
+    sections = _json_loads(project.proposal_sections_json, [])
+    if not sections:
+        _add_docx_paragraph(document, "暂无申请书正文，请先生成基金申请书。")
+    for section in sections:
+        document.add_heading(section.get("title", "未命名章节"), level=1)
+        markdown = section.get("markdown", "")
+        for paragraph in [line.strip() for line in markdown.split("\n") if line.strip()]:
+            _add_docx_paragraph(document, paragraph)
+
+    references = _json_loads(project.references_json, [])
+    if references:
+        document.add_heading("参考文献", level=1)
+        for index, ref in enumerate(references, start=1):
+            _add_docx_paragraph(
+                document,
+                f"{index}. {ref.get('title', '')}. {ref.get('journal', '')}, {ref.get('year', '')}. DOI: {ref.get('doi', '')}",
+            )
+
+    buffer = io.BytesIO()
+    document.save(buffer)
+    buffer.seek(0)
+    return buffer
 
 
 @router.post("/projects", response_model=GrantProjectResponse)
@@ -436,3 +489,21 @@ async def generate_proposal(
     db.commit()
     db.refresh(project)
     return _project_to_response(project)
+
+
+@router.post("/projects/{project_id}/exports/word")
+async def export_grant_proposal_word(
+    project_id: int,
+    item: GrantStepAction,
+    db: Session = Depends(get_db),
+    current_user: Optional[AdminUser] = Depends(get_optional_admin),
+):
+    project = await _get_project(db, project_id, item.token, current_user)
+    buffer = _build_proposal_docx(project)
+    filename = f"grant-proposal-{project_id}.docx"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers=headers,
+    )

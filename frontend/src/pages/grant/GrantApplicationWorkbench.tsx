@@ -40,6 +40,7 @@ import type { GrantCandidateTopic, GrantProject, GrantProposalSection, GrantStep
 import { useServiceToken } from '../../hooks/useServiceToken';
 import {
   createGrantProject,
+  exportGrantProposalWord,
   generateGrantKeywords,
   generateGrantProposal,
   generateGrantReport,
@@ -50,6 +51,7 @@ import {
   selectGrantTopic,
 } from '../../services/grantApi';
 import type { GrantProjectSummary } from '../../services/grantApi';
+import { downloadBlob } from '../../utils/download';
 
 const { Text, Title, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -84,7 +86,19 @@ function SectionCard(props: { title: string; extra?: ReactNode; children: ReactN
   );
 }
 
-function ProjectHeader({ project, currentStep, onStepChange }: { project: GrantProject; currentStep: GrantStepKey; onStepChange: (step: GrantStepKey) => void }) {
+function ProjectHeader({
+  project,
+  currentStep,
+  onStepChange,
+  onExport,
+  loading,
+}: {
+  project: GrantProject;
+  currentStep: GrantStepKey;
+  onStepChange: (step: GrantStepKey) => void;
+  onExport: () => void;
+  loading: boolean;
+}) {
   const current = getStepIndex(currentStep);
   const nextStep = grantSteps[Math.min(current + 1, grantSteps.length - 1)];
 
@@ -111,7 +125,8 @@ function ProjectHeader({ project, currentStep, onStepChange }: { project: GrantP
             <Button
               type="primary"
               icon={<ArrowRightOutlined />}
-              onClick={() => onStepChange(nextStep.key)}
+              loading={loading && currentStep === 'proposal'}
+              onClick={() => currentStep === 'proposal' ? onExport() : onStepChange(nextStep.key)}
             >
               {currentStep === 'proposal' ? '导出 Word' : `进入${grantSteps[Math.min(current + 1, grantSteps.length - 1)]?.title}`}
             </Button>
@@ -462,7 +477,7 @@ function ProposalStatusTag({ section }: { section: GrantProposalSection }) {
   return <Tag color={colorMap[section.status]}>{labelMap[section.status]}</Tag>;
 }
 
-function ProposalPage({ project, onPrev }: { project: GrantProject; onPrev: () => void }) {
+function ProposalPage({ project, onPrev, onExport, loading }: { project: GrantProject; onPrev: () => void; onExport: () => void; loading: boolean }) {
   const activeSection = project.proposalSections[2] || project.proposalSections[0] || { title: '项目立项依据', markdown: '', status: 'pending', wordCount: 0, key: 'basis' } as GrantProposalSection;
 
   return (
@@ -509,7 +524,7 @@ function ProposalPage({ project, onPrev }: { project: GrantProject; onPrev: () =
         <Button icon={<ArrowLeftOutlined />} onClick={onPrev}>上一步</Button>
         <Button icon={<FileSearchOutlined />}>引用校验</Button>
         <Button icon={<FileDoneOutlined />}>Mermaid 检查</Button>
-        <Button type="primary" icon={<FileTextOutlined />}>导出 Word</Button>
+        <Button type="primary" icon={<FileTextOutlined />} loading={loading} onClick={onExport}>导出 Word</Button>
       </Space>
     </SectionCard>
   );
@@ -737,6 +752,23 @@ export default function GrantApplicationWorkbench() {
     }
   };
 
+  const handleExportWord = async () => {
+    if (!serviceToken) {
+      message.warning('请先输入服务令牌');
+      return;
+    }
+    setLoading(true);
+    try {
+      const blob = await exportGrantProposalWord(project.id, serviceToken);
+      downloadBlob(blob, `课题申报申请书-${project.id}.docx`);
+      message.success('Word 已导出');
+    } catch (error: any) {
+      message.error(error?.response?.data?.detail || error?.message || '导出 Word 失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const page = useMemo(() => {
     const prev = () => goStep(grantSteps[Math.max(currentIndex - 1, 0)].key);
     const next = () => goStep(grantSteps[Math.min(currentIndex + 1, grantSteps.length - 1)].key);
@@ -751,7 +783,7 @@ export default function GrantApplicationWorkbench() {
       case 'report':
         return <ReportPage project={project} loading={loading} onPrev={prev} onNext={handleReportNext} />;
       case 'proposal':
-        return <ProposalPage project={project} onPrev={prev} />;
+        return <ProposalPage project={project} loading={loading} onPrev={prev} onExport={handleExportWord} />;
       default:
         return <InputPage project={project} loading={loading} onNext={next} />;
     }
@@ -770,7 +802,7 @@ export default function GrantApplicationWorkbench() {
 
   return (
     <div style={{ background: '#f5f7fb', margin: -24, padding: 24, minHeight: 'calc(100vh - 112px)' }}>
-      <ProjectHeader project={project} currentStep={currentStep} onStepChange={goStep} />
+      <ProjectHeader project={project} currentStep={currentStep} loading={loading} onStepChange={goStep} onExport={handleExportWord} />
 
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={18}>
