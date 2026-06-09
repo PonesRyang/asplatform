@@ -76,6 +76,14 @@ export async function getGrantProject(projectId: number, token: string): Promise
   return fromApiProject(response.data)
 }
 
+export async function updateGrantProject(projectId: number, token: string, input: GrantInputState): Promise<GrantProject> {
+  const response = await api.patch<GrantProjectApiResponse>(`/api/ai/grant/projects/${projectId}`, {
+    token,
+    input: toApiInput(input),
+  })
+  return fromApiProject(response.data)
+}
+
 export async function generateGrantKeywords(projectId: number, token: string): Promise<GrantProject> {
   const response = await api.post<GrantProjectApiResponse>(`/api/ai/grant/projects/${projectId}/keywords/generate`, { token })
   return fromApiProject(response.data)

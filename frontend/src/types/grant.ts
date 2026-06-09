@@ -79,7 +79,7 @@ export interface GrantProposalSection {
 export interface GrantProject {
   id: number
   title: string
-  status: 'draft' | 'keywords_ready' | 'topics_ready' | 'report_ready' | 'proposal_ready' | 'generating' | 'failed'
+  status: 'draft' | 'keywords_ready' | 'references_ready' | 'topics_ready' | 'report_ready' | 'proposal_ready' | 'generating' | 'failed'
   currentStep: GrantStepKey
   input: GrantInputState
   keywords: GrantKeywordState

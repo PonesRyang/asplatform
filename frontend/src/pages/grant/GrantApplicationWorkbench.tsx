@@ -26,17 +26,11 @@ import {
 import {
   ArrowLeftOutlined,
   ArrowRightOutlined,
-  BookOutlined,
   CheckCircleOutlined,
-  EditOutlined,
-  FileDoneOutlined,
-  FileSearchOutlined,
   FileTextOutlined,
-  ReloadOutlined,
-  SaveOutlined,
 } from '@ant-design/icons';
-import { grantMockProject, grantSteps } from './grantMockData';
-import type { GrantCandidateTopic, GrantProject, GrantProposalSection, GrantReference, GrantStepKey } from '../../types/grant';
+import { grantSteps } from './grantFlowConfig';
+import type { GrantCandidateTopic, GrantInputState, GrantProject, GrantProposalSection, GrantReference, GrantStepKey } from '../../types/grant';
 import { useServiceToken } from '../../hooks/useServiceToken';
 import {
   createGrantProject,
@@ -49,6 +43,7 @@ import {
   listGrantProjects,
   searchGrantReferences,
   selectGrantTopic,
+  updateGrantProject,
 } from '../../services/grantApi';
 import type { GrantProjectSummary } from '../../services/grantApi';
 import { downloadBlob } from '../../utils/download';
@@ -57,6 +52,28 @@ const { Text, Title, Paragraph } = Typography;
 const { TextArea } = Input;
 
 const validSteps = grantSteps.map(step => step.key);
+
+const emptyGrantProject: GrantProject = {
+  id: 0,
+  title: '未命名申报项目',
+  status: 'draft',
+  currentStep: 'input',
+  input: {
+    fundType: '国自然-青年基金',
+    researchAreaPath: [],
+    subject: '',
+    diseasePath: [],
+    phenotype: '',
+    variableType: '',
+    variableName: '',
+  },
+  keywords: { must: [], should: [], groups: [] },
+  references: [],
+  topics: [],
+  reportSections: [],
+  proposalSections: [],
+  updatedAt: '',
+};
 
 function getStepFromPath(pathname: string): GrantStepKey {
   const segment = pathname.split('/').filter(Boolean).pop();
@@ -131,14 +148,14 @@ function ProjectHeader({
         </Col>
         <Col>
           <Space>
-            <Button icon={<SaveOutlined />}>保存草稿</Button>
             <Button
               type="primary"
               icon={<ArrowRightOutlined />}
               loading={loading && currentStep === 'proposal'}
+              disabled={project.id <= 0 && currentStep !== 'proposal'}
               onClick={() => currentStep === 'proposal' ? onExport() : onStepChange(nextStep.key)}
             >
-              {currentStep === 'proposal' ? '导出 Word' : `进入${grantSteps[Math.min(current + 1, grantSteps.length - 1)]?.title}`}
+              {project.id <= 0 && currentStep !== 'proposal' ? '先填写并开始选题' : currentStep === 'proposal' ? '导出 Word' : `进入${grantSteps[Math.min(current + 1, grantSteps.length - 1)]?.title}`}
             </Button>
           </Space>
         </Col>
@@ -197,7 +214,8 @@ function SidePanel({ project, currentStep }: { project: GrantProject; currentSte
   );
 }
 
-function InputPage({ project, onNext, loading }: { project: GrantProject; onNext: () => void; loading: boolean }) {
+function InputPage({ project, onNext, loading }: { project: GrantProject; onNext: (input: GrantInputState) => void; loading: boolean }) {
+  const [form] = Form.useForm<GrantInputState>();
   const formValues = {
     fundType: project.input.fundType,
     researchAreaPath: project.input.researchAreaPath,
@@ -208,10 +226,14 @@ function InputPage({ project, onNext, loading }: { project: GrantProject; onNext
     variableName: project.input.variableName,
   };
 
+  useEffect(() => {
+    form.setFieldsValue(formValues);
+  }, [form, project.id, project.updatedAt]);
+
   return (
     <SectionCard
       title="第 1 页：输入选题信息"
-      extra={<Tag color="blue">必填完整度 100%</Tag>}
+      extra={<Tag color="blue">真实表单提交</Tag>}
     >
       <Alert
         type="info"
@@ -219,7 +241,7 @@ function InputPage({ project, onNext, loading }: { project: GrantProject; onNext
         message="高级选项不是必填，但会显著影响后续关键词和候选选题的聚焦度。"
         style={{ marginBottom: 16 }}
       />
-      <Form layout="vertical" initialValues={formValues}>
+      <Form form={form} layout="vertical" initialValues={formValues} onFinish={onNext}>
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item label="课题类型" name="fundType" rules={[{ required: true }]}>
@@ -275,11 +297,10 @@ function InputPage({ project, onNext, loading }: { project: GrantProject; onNext
             </Form.Item>
           </Col>
         </Row>
+        <Space>
+          <Button type="primary" icon={<ArrowRightOutlined />} loading={loading} htmlType="submit">保存并开始选题</Button>
+        </Space>
       </Form>
-      <Space>
-        <Button icon={<SaveOutlined />}>保存草稿</Button>
-        <Button type="primary" icon={<ArrowRightOutlined />} loading={loading} onClick={onNext}>开始选题</Button>
-      </Space>
     </SectionCard>
   );
 }
@@ -298,7 +319,6 @@ function KeywordsPage({ project, onPrev, onNext, loading }: { project: GrantProj
           <Text strong>必须包含 AND</Text>
           <div style={{ marginTop: 8 }}>
             {project.keywords.must.map(keyword => <Tag color="blue" key={keyword.id}>{keyword.text}</Tag>)}
-            <Button size="small" icon={<EditOutlined />}>添加 AND</Button>
           </div>
         </Col>
         <Col span={24}>
@@ -309,7 +329,6 @@ function KeywordsPage({ project, onPrev, onNext, loading }: { project: GrantProj
                 {keyword.text}
               </Tag>
             ))}
-            <Button size="small" icon={<EditOutlined />}>添加 OR</Button>
           </div>
         </Col>
         <Col span={24}>
@@ -367,7 +386,6 @@ function KeywordsPage({ project, onPrev, onNext, loading }: { project: GrantProj
 
       <Space>
         <Button icon={<ArrowLeftOutlined />} onClick={onPrev}>上一步</Button>
-        <Button icon={<ReloadOutlined />}>重新生成关键词</Button>
         <Button type="primary" icon={<ArrowRightOutlined />} loading={loading} onClick={onNext}>生成创新选题</Button>
       </Space>
     </SectionCard>
@@ -391,7 +409,6 @@ function TopicsPage({ project, onPrev, onNext, onSelectTopic, loading }: { proje
     { title: '操作', key: 'action', width: 150, render: (_: unknown, record: GrantCandidateTopic) => (
       <Space>
         <Button size="small" type={record.selected ? 'primary' : 'default'} icon={<CheckCircleOutlined />} onClick={() => onSelectTopic(record.id)}>选择</Button>
-        <Button size="small">依据</Button>
       </Space>
     ) },
   ];
@@ -404,7 +421,7 @@ function TopicsPage({ project, onPrev, onNext, onSelectTopic, loading }: { proje
       <Alert
         type="info"
         showIcon
-        message="目标网站会先检索文献，再基于关键词和文献生成候选题。这里先用 mock 数据展示完整决策信息。"
+        message="系统会先检索真实文献，再基于关键词和文献生成候选题；若 AI 服务返回不可用结果，候选题会标记为需复核的结构化兜底内容。"
         style={{ marginBottom: 16 }}
       />
       <Table
@@ -427,8 +444,6 @@ function TopicsPage({ project, onPrev, onNext, onSelectTopic, loading }: { proje
       <Divider />
       <Space>
         <Button icon={<ArrowLeftOutlined />} onClick={onPrev}>上一步</Button>
-        <Button icon={<ReloadOutlined />}>重新生成候选题</Button>
-        <Button icon={<EditOutlined />}>编辑当前题目</Button>
         <Button type="primary" icon={<ArrowRightOutlined />} loading={loading} onClick={onNext}>确认并生成选题报告</Button>
       </Space>
     </SectionCard>
@@ -471,8 +486,6 @@ function ReportPage({ project, onPrev, onNext, loading }: { project: GrantProjec
       <Divider />
       <Space>
         <Button icon={<ArrowLeftOutlined />} onClick={onPrev}>上一步</Button>
-        <Button icon={<ReloadOutlined />}>重新生成报告</Button>
-        <Button icon={<EditOutlined />}>局部编辑</Button>
         <Button type="primary" icon={<ArrowRightOutlined />} loading={loading} onClick={onNext}>生成基金申请书</Button>
       </Space>
     </SectionCard>
@@ -529,23 +542,16 @@ function ProposalPage({ project, onPrev, onExport, loading }: { project: GrantPr
           <Alert
             type="warning"
             showIcon
-            message="技术路线图章节需要 Mermaid 语法校验，失败时展示源码并允许重新生成。"
+            message="技术路线图章节需要在正式提交前完成语法校验和人工复核。"
             style={{ marginBottom: 12 }}
           />
           <Title level={5}>{activeSection.title}</Title>
           <TextArea rows={12} value={activeSection.markdown} readOnly />
-          <Space style={{ marginTop: 12 }}>
-            <Button icon={<ReloadOutlined />}>重写本章</Button>
-            <Button icon={<EditOutlined />}>AI 改写选中段落</Button>
-            <Button icon={<BookOutlined />}>插入参考文献</Button>
-          </Space>
         </Col>
       </Row>
       <Divider />
       <Space>
         <Button icon={<ArrowLeftOutlined />} onClick={onPrev}>上一步</Button>
-        <Button icon={<FileSearchOutlined />}>引用校验</Button>
-        <Button icon={<FileDoneOutlined />}>Mermaid 检查</Button>
         <Button type="primary" icon={<FileTextOutlined />} loading={loading} onClick={onExport}>导出 Word</Button>
       </Space>
     </SectionCard>
@@ -632,7 +638,7 @@ export default function GrantApplicationWorkbench() {
   const { serviceToken } = useServiceToken();
   const currentStep = getStepFromPath(location.pathname);
   const currentIndex = getStepIndex(currentStep);
-  const [project, setProject] = useState<GrantProject>(grantMockProject);
+  const [project, setProject] = useState<GrantProject>(emptyGrantProject);
   const [projectSummaries, setProjectSummaries] = useState<GrantProjectSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [bootstrapped, setBootstrapped] = useState(false);
@@ -643,7 +649,11 @@ export default function GrantApplicationWorkbench() {
   }, [location.pathname]);
 
   const goStep = (step: GrantStepKey) => {
-    navigate(`/frontend/grant/projects/${project.id}/${step}`);
+    if (project.id > 0) {
+      navigate(`/frontend/grant/projects/${project.id}/${step}`);
+      return;
+    }
+    navigate(`/frontend/grant/${step}`);
   };
 
   useEffect(() => {
@@ -664,8 +674,8 @@ export default function GrantApplicationWorkbench() {
 
         setBootstrapped(true);
       } catch (error: any) {
-        message.error(error?.response?.data?.detail || error?.message || '加载课题申报项目失败，已使用本地演示数据');
-        setProject(grantMockProject);
+        message.error(error?.response?.data?.detail || error?.message || '加载课题申报项目失败');
+        setProject(emptyGrantProject);
         setProjectSummaries([]);
         setBootstrapped(true);
       } finally {
@@ -704,30 +714,36 @@ export default function GrantApplicationWorkbench() {
       message.warning('请先输入服务令牌');
       return;
     }
-    setLoading(true);
-    try {
-      const created = await createGrantProject(serviceToken, grantMockProject.input);
-      setProject(created);
-      const projects = await listGrantProjects(serviceToken);
-      setProjectSummaries(projects);
-      message.success('课题申报项目已创建');
-      navigate(`/frontend/grant/projects/${created.id}/input`);
-    } catch (error: any) {
-      message.error(error?.response?.data?.detail || error?.message || '创建项目失败');
-    } finally {
-      setLoading(false);
-    }
+    setProject(emptyGrantProject);
+    navigate('/frontend/grant/input');
   };
 
   const handleOpenProject = (summary: GrantProjectSummary) => {
     navigate(`/frontend/grant/projects/${summary.id}/${summary.current_step || 'input'}`);
   };
 
-  const handleInputNext = () => runStepAction(
-    () => generateGrantKeywords(project.id, serviceToken!),
-    'keywords',
-    '关键词已生成',
-  );
+  const handleInputNext = async (input: GrantInputState) => {
+    if (!serviceToken) {
+      message.warning('请先输入服务令牌');
+      return;
+    }
+    setLoading(true);
+    try {
+      const savedProject = project.id > 0
+        ? await updateGrantProject(project.id, serviceToken, input)
+        : await createGrantProject(serviceToken, input);
+      const withKeywords = await generateGrantKeywords(savedProject.id, serviceToken);
+      setProject(withKeywords);
+      const projects = await listGrantProjects(serviceToken);
+      setProjectSummaries(projects);
+      message.success('项目已保存，关键词已生成');
+      navigate(`/frontend/grant/projects/${withKeywords.id}/keywords`);
+    } catch (error: any) {
+      message.error(error?.response?.data?.detail || error?.message || '保存项目或生成关键词失败');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleKeywordsNext = async () => {
     if (!serviceToken) {
