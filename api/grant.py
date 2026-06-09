@@ -157,8 +157,8 @@ def _strip_json_fence(content: str) -> str:
 async def _require_ai_json(prompt: str) -> Any:
     response = await ai_service.chat_completion([{"role": "user", "content": prompt}], temperature=0.5)
     content = response.get("content", "")
-    if not content or content.startswith("[Mock Response]") or content.startswith("AI 服务"):
-        raise HTTPException(status_code=502, detail="AI 生成失败，未写入生成内容，请检查模型配置或稍后重试")
+    if not content or content.startswith("[Mock Response]") or content.startswith("AI "):
+        raise HTTPException(status_code=502, detail=content or "AI 生成失败，未写入生成内容")
 
     try:
         return json.loads(_strip_json_fence(content))

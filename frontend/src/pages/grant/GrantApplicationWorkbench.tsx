@@ -308,9 +308,10 @@ function InputPage({ project, onNext, loading }: { project: GrantProject; onNext
   );
 }
 
-function KeywordsPage({ project, onPrev, onNext, loading }: { project: GrantProject; onPrev: () => void; onNext: () => void; loading: boolean }) {
+function KeywordsPage({ project, onPrev, onGenerateKeywords, onNext, loading }: { project: GrantProject; onPrev: () => void; onGenerateKeywords: () => void; onNext: () => void; loading: boolean }) {
   const selectedShould = project.keywords.should.filter(keyword => keyword.selected);
   const expression = `(${project.keywords.must.map(keyword => keyword.text).join(' AND ') || '等待生成'}) AND (${selectedShould.map(keyword => keyword.text).join(' OR ') || '等待生成'})`;
+  const hasKeywords = project.keywords.must.length > 0 || project.keywords.should.length > 0 || project.keywords.groups.length > 0;
 
   return (
     <SectionCard
@@ -318,6 +319,15 @@ function KeywordsPage({ project, onPrev, onNext, loading }: { project: GrantProj
       extra={<Tag color="green">已生成关键词边界</Tag>}
     >
       <Row gutter={[16, 16]}>
+        {!hasKeywords && (
+          <Col span={24}>
+            <Alert
+              type="warning"
+              showIcon
+              message="当前项目还没有 AI 关键词。请先点击 AI 生成关键词；如果 AI 服务鉴权失败，这里不会写入任何生成内容。"
+            />
+          </Col>
+        )}
         <Col span={24}>
           <Text strong>必须包含 AND</Text>
           <div style={{ marginTop: 8 }}>
@@ -389,7 +399,8 @@ function KeywordsPage({ project, onPrev, onNext, loading }: { project: GrantProj
 
       <Space>
         <Button icon={<ArrowLeftOutlined />} onClick={onPrev}>上一步</Button>
-        <Button type="primary" icon={<ArrowRightOutlined />} loading={loading} onClick={onNext}>生成创新选题</Button>
+        <Button loading={loading} onClick={onGenerateKeywords}>AI 生成关键词</Button>
+        <Button type="primary" icon={<ArrowRightOutlined />} loading={loading} disabled={!hasKeywords} onClick={onNext}>生成创新选题</Button>
       </Space>
     </SectionCard>
   );
@@ -741,14 +752,41 @@ export default function GrantApplicationWorkbench() {
       const savedProject = project.id > 0
         ? await updateGrantProject(project.id, serviceToken, input)
         : await createGrantProject(serviceToken, input);
-      const withKeywords = await generateGrantKeywords(savedProject.id, serviceToken);
-      setProject(withKeywords);
       const projects = await listGrantProjects(serviceToken);
       setProjectSummaries(projects);
-      message.success('项目已保存，关键词已生成');
-      navigate(`/frontend/grant/projects/${withKeywords.id}/keywords`);
+      setProject(savedProject);
+      navigate(`/frontend/grant/projects/${savedProject.id}/keywords`);
+
+      try {
+        const withKeywords = await generateGrantKeywords(savedProject.id, serviceToken);
+        setProject(withKeywords);
+        message.success('项目已保存，关键词已生成');
+      } catch (error: any) {
+        message.error(error?.response?.data?.detail || error?.message || '项目已保存，但 AI 关键词生成失败');
+      }
     } catch (error: any) {
-      message.error(error?.response?.data?.detail || error?.message || '保存项目或生成关键词失败');
+      message.error(error?.response?.data?.detail || error?.message || '保存项目失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateKeywords = async () => {
+    if (!serviceToken) {
+      message.warning('请先输入服务令牌');
+      return;
+    }
+    if (project.id <= 0) {
+      message.warning('请先保存申报项目');
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await generateGrantKeywords(project.id, serviceToken);
+      setProject(data);
+      message.success('关键词已生成');
+    } catch (error: any) {
+      message.error(error?.response?.data?.detail || error?.message || 'AI 关键词生成失败');
     } finally {
       setLoading(false);
     }
@@ -824,7 +862,7 @@ export default function GrantApplicationWorkbench() {
       case 'input':
         return <InputPage project={project} loading={loading} onNext={handleInputNext} />;
       case 'keywords':
-        return <KeywordsPage project={project} loading={loading} onPrev={prev} onNext={handleKeywordsNext} />;
+        return <KeywordsPage project={project} loading={loading} onPrev={prev} onGenerateKeywords={handleGenerateKeywords} onNext={handleKeywordsNext} />;
       case 'topics':
         return <TopicsPage project={project} loading={loading} onPrev={prev} onNext={handleTopicsNext} onSelectTopic={handleSelectTopic} />;
       case 'report':

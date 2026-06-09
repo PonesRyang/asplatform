@@ -53,6 +53,27 @@ class AIService:
                     "completion_tokens": 0,
                     "total_tokens": 0
                 }
+            except httpx.HTTPStatusError as e:
+                status = e.response.status_code
+                detail = ""
+                try:
+                    detail = e.response.json().get("error", {}).get("message", "")
+                except Exception:
+                    detail = e.response.text[:200]
+                if status in (401, 403):
+                    message = "AI 服务鉴权失败，请配置有效的 API Key"
+                elif status == 404:
+                    message = "AI 模型或接口地址不存在，请检查 base_url 和 model 配置"
+                else:
+                    message = f"AI 服务 HTTP {status} 错误"
+                if detail:
+                    message = f"{message}: {detail}"
+                return {
+                    "content": message,
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0
+                }
             except Exception as e:
                 return {
                     "content": f"AI 服务调用出错: {str(e)}",
