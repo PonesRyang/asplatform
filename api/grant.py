@@ -24,6 +24,7 @@ from schemas.grant import (
     GrantProjectSummary,
     GrantProjectUpdate,
     GrantStepAction,
+    GrantStepHistoryItem,
     GrantTopicSelect,
 )
 from utils.auth import check_permission, get_optional_admin, verify_token
@@ -585,6 +586,32 @@ async def generate_report(
     db.commit()
     db.refresh(project)
     return _project_to_response(project)
+
+
+@router.get("/projects/{project_id}/report/history", response_model=List[GrantStepHistoryItem])
+async def get_report_history(
+    project_id: int,
+    token: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: Optional[AdminUser] = Depends(get_optional_admin),
+):
+    project = await _get_project(db, project_id, token, current_user)
+    steps = (
+        db.query(GrantStep)
+        .filter(GrantStep.project_id == project.id, GrantStep.step_key == "report")
+        .order_by(GrantStep.created_at.desc(), GrantStep.id.desc())
+        .all()
+    )
+    return [
+        GrantStepHistoryItem(
+            id=step.id,
+            step_key=step.step_key,
+            status=step.status,
+            output=_json_loads(step.output_json, []),
+            created_at=step.created_at,
+        )
+        for step in steps
+    ]
 
 
 @router.post("/projects/{project_id}/proposal/generate", response_model=GrantProjectResponse)

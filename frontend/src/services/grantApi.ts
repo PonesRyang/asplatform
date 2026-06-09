@@ -1,5 +1,5 @@
 import api from './api'
-import type { GrantInputState, GrantProject, GrantStepKey } from '../types/grant'
+import type { GrantInputState, GrantProject, GrantReportVersion, GrantStepKey } from '../types/grant'
 
 interface GrantProjectApiResponse {
   id: number
@@ -107,6 +107,13 @@ export async function selectGrantTopic(projectId: number, topicId: string, token
 export async function generateGrantReport(projectId: number, token: string): Promise<GrantProject> {
   const response = await api.post<GrantProjectApiResponse>(`/api/ai/grant/projects/${projectId}/report/generate`, { token })
   return fromApiProject(response.data)
+}
+
+export async function getGrantReportHistory(projectId: number, token: string): Promise<GrantReportVersion[]> {
+  const response = await api.get<GrantReportVersion[]>(`/api/ai/grant/projects/${projectId}/report/history`, {
+    params: { token },
+  })
+  return response.data
 }
 
 export async function generateGrantProposal(projectId: number, token: string): Promise<GrantProject> {

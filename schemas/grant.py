@@ -45,6 +45,24 @@ class GrantTopicSelect(BaseModel):
     token: Optional[str] = None
 
 
+class GrantStepHistoryItem(BaseModel):
+    id: int
+    step_key: str
+    status: str
+    output: Any
+    created_at: datetime
+
+    @field_serializer("created_at")
+    def serialize_dt(self, dt: datetime | None) -> str | None:
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
 class GrantProjectSummary(BaseModel):
     id: int
     title: str

@@ -30,7 +30,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import { grantSteps } from './grantFlowConfig';
-import type { GrantCandidateTopic, GrantInputState, GrantProject, GrantProposalSection, GrantReference, GrantStepKey } from '../../types/grant';
+import type { GrantCandidateTopic, GrantInputState, GrantProject, GrantProposalSection, GrantReference, GrantReportVersion, GrantStepKey } from '../../types/grant';
 import { useServiceToken } from '../../hooks/useServiceToken';
 import {
   createGrantProject,
@@ -40,6 +40,7 @@ import {
   generateGrantReport,
   generateGrantTopics,
   getGrantProject,
+  getGrantReportHistory,
   listGrantProjects,
   searchGrantReferences,
   selectGrantTopic,
@@ -474,11 +475,31 @@ function TopicsPage({ project, onPrev, onNext, onSelectTopic, loading }: { proje
   );
 }
 
-function ReportPage({ project, onPrev, onNext, loading }: { project: GrantProject; onPrev: () => void; onNext: () => void; loading: boolean }) {
+function ReportPage({
+  project,
+  versions,
+  selectedVersionId,
+  onSelectVersion,
+  onPrev,
+  onNext,
+  loading,
+}: {
+  project: GrantProject;
+  versions: GrantReportVersion[];
+  selectedVersionId: number | null;
+  onSelectVersion: (versionId: number | null) => void;
+  onPrev: () => void;
+  onNext: () => void;
+  loading: boolean;
+}) {
+  const selectedVersion = versions.find(version => version.id === selectedVersionId);
+  const displayedSections = selectedVersion?.output || project.reportSections;
+  const versionLabel = selectedVersion ? `历史版本 #${selectedVersion.id}` : '当前版本';
+
   return (
     <SectionCard
       title="第 4 页：选题报告"
-      extra={<Tag color="green">报告版本 v1</Tag>}
+      extra={<Tag color="green">{versionLabel}</Tag>}
     >
       <Row gutter={[16, 16]}>
         <Col span={6}>
@@ -486,13 +507,35 @@ function ReportPage({ project, onPrev, onNext, loading }: { project: GrantProjec
             <Text strong>报告目录</Text>
             <List
               size="small"
-              dataSource={project.reportSections}
+              dataSource={displayedSections}
               renderItem={section => <List.Item>{section.title}</List.Item>}
             />
+            <Divider />
+            <Text strong>历史版本</Text>
+            <List
+              size="small"
+              dataSource={versions}
+              locale={{ emptyText: '暂无历史版本' }}
+              renderItem={version => (
+                <List.Item
+                  onClick={() => onSelectVersion(version.id)}
+                  style={{ cursor: 'pointer', background: selectedVersionId === version.id ? '#e6f4ff' : 'transparent', paddingLeft: 8 }}
+                >
+                  <Space direction="vertical" size={0}>
+                    <Text strong={selectedVersionId === version.id}>版本 #{version.id}</Text>
+                    <Text type="secondary">{version.created_at}</Text>
+                    <Text type="secondary">{version.output.length} 个章节</Text>
+                  </Space>
+                </List.Item>
+              )}
+            />
+            {selectedVersionId && (
+              <Button size="small" style={{ marginTop: 8 }} onClick={() => onSelectVersion(null)}>查看当前版本</Button>
+            )}
           </div>
         </Col>
         <Col span={18}>
-          {project.reportSections.map(section => (
+          {displayedSections.map(section => (
             <div key={section.key} style={{ marginBottom: 20 }}>
               <Title level={5}>{section.title}</Title>
               <Paragraph>{section.markdown}</Paragraph>
@@ -664,6 +707,8 @@ export default function GrantApplicationWorkbench() {
   const currentIndex = getStepIndex(currentStep);
   const [project, setProject] = useState<GrantProject>(emptyGrantProject);
   const [projectSummaries, setProjectSummaries] = useState<GrantProjectSummary[]>([]);
+  const [reportVersions, setReportVersions] = useState<GrantReportVersion[]>([]);
+  const [selectedReportVersionId, setSelectedReportVersionId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [bootstrapped, setBootstrapped] = useState(false);
 
@@ -720,6 +765,24 @@ export default function GrantApplicationWorkbench() {
     if (!serviceToken || !routeProjectId || routeProjectId === project.id) return;
     setBootstrapped(false);
   }, [project.id, routeProjectId, serviceToken]);
+
+  const loadReportHistory = async (projectId: number) => {
+    if (!serviceToken || projectId <= 0) return;
+    try {
+      const versions = await getGrantReportHistory(projectId, serviceToken);
+      setReportVersions(versions);
+      if (versions.length > 0 && selectedReportVersionId && !versions.some(version => version.id === selectedReportVersionId)) {
+        setSelectedReportVersionId(null);
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.detail || error?.message || '加载选题报告历史版本失败');
+    }
+  };
+
+  useEffect(() => {
+    if (currentStep !== 'report' || project.id <= 0) return;
+    loadReportHistory(project.id);
+  }, [currentStep, project.id, serviceToken]);
 
   const runStepAction = async (action: () => Promise<GrantProject>, nextStep: GrantStepKey, successText: string) => {
     if (!serviceToken) {
@@ -849,11 +912,25 @@ export default function GrantApplicationWorkbench() {
     }
   };
 
-  const handleTopicsNext = () => runStepAction(
-    () => generateGrantReport(project.id, serviceToken!),
-    'report',
-    '选题报告已生成',
-  );
+  const handleTopicsNext = async () => {
+    if (!serviceToken) {
+      message.warning('请先输入服务令牌');
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await generateGrantReport(project.id, serviceToken);
+      setProject(data);
+      setSelectedReportVersionId(null);
+      await loadReportHistory(data.id);
+      message.success('选题报告已生成');
+      navigate(`/frontend/grant/projects/${data.id}/report`);
+    } catch (error: any) {
+      message.error(error?.response?.data?.detail || error?.message || '选题报告生成失败');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleReportNext = () => runStepAction(
     () => generateGrantProposal(project.id, serviceToken!),
@@ -904,13 +981,13 @@ export default function GrantApplicationWorkbench() {
       case 'topics':
         return <TopicsPage project={project} loading={loading} onPrev={prev} onNext={handleTopicsNext} onSelectTopic={handleSelectTopic} />;
       case 'report':
-        return <ReportPage project={project} loading={loading} onPrev={prev} onNext={handleReportNext} />;
+        return <ReportPage project={project} versions={reportVersions} selectedVersionId={selectedReportVersionId} onSelectVersion={setSelectedReportVersionId} loading={loading} onPrev={prev} onNext={handleReportNext} />;
       case 'proposal':
         return <ProposalPage project={project} loading={loading} onPrev={prev} onExport={handleExportWord} />;
       default:
         return <InputPage project={project} loading={loading} onNext={next} />;
     }
-  }, [currentStep, currentIndex, project, loading]);
+  }, [currentStep, currentIndex, project, loading, reportVersions, selectedReportVersionId]);
 
   if (!routeProjectId && !isNewProjectRoute) {
     return (

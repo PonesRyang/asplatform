@@ -68,6 +68,14 @@ export interface GrantReportSection {
   markdown: string
 }
 
+export interface GrantReportVersion {
+  id: number
+  step_key: GrantStepKey
+  status: string
+  output: GrantReportSection[]
+  created_at: string
+}
+
 export interface GrantProposalSection {
   key: string
   title: string
