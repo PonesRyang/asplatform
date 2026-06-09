@@ -142,123 +142,6 @@ def _save_step(db: Session, project: GrantProject, step_key: str, output: Any, s
     project.updated_at = datetime.now(timezone.utc)
 
 
-def _mock_keywords(project: GrantProject) -> Dict[str, Any]:
-    terms = _fallback_terms(project)
-    variable = terms["variable"]
-    disease = terms["disease"]
-    phenotype = terms["phenotype"]
-    variable_type = project.variable_type or "核心变量"
-    subject_terms = [term for term in re.split(r"[\s,，;；、]+", project.subject or "") if term][:4]
-    return {
-        "must": [{"id": "must-variable", "text": variable, "source": "ai", "selected": True}],
-        "should": [
-            {"id": "or-disease", "text": disease, "source": "ai", "selected": True, "groupKey": "disease"},
-            {"id": "or-phenotype", "text": phenotype, "source": "ai", "selected": True, "groupKey": "phenotype"},
-            {"id": "or-type", "text": variable_type, "source": "ai", "selected": True, "groupKey": "target"},
-            {"id": "or-variable", "text": variable, "source": "user", "selected": True, "groupKey": "target"},
-            *[
-                {"id": f"or-subject-{index}", "text": term, "source": "user", "selected": True, "groupKey": "subject"}
-                for index, term in enumerate(subject_terms, 1)
-            ],
-            {"id": "or-mechanism", "text": "机制研究", "source": "system", "selected": True, "groupKey": "pathway"},
-            {"id": "or-validation", "text": "功能验证", "source": "system", "selected": False, "groupKey": "technique"},
-        ],
-        "groups": [
-            {"key": "disease", "label": "关联疾病", "keywords": [{"id": "g1", "text": disease, "source": "ai", "selected": True}, {"id": "g2", "text": f"{disease}模型", "source": "system", "selected": False}]},
-            {"key": "phenotype", "label": "组织/细胞表型", "keywords": [{"id": "g3", "text": phenotype, "source": "ai", "selected": True}, {"id": "g4", "text": f"{phenotype}异质性", "source": "system", "selected": False}]},
-            {"key": "target", "label": "分子靶点", "keywords": [{"id": "g5", "text": variable, "source": "ai", "selected": True}, {"id": "g6", "text": variable_type, "source": "ai", "selected": True}]},
-            {"key": "subject", "label": "主题词", "keywords": [{"id": f"g-subject-{index}", "text": term, "source": "user", "selected": True} for index, term in enumerate(subject_terms, 1)]},
-            {"key": "pathway", "label": "机制方向", "keywords": [{"id": "g7", "text": "机制研究", "source": "system", "selected": True}, {"id": "g8", "text": "信号通路", "source": "system", "selected": False}]},
-            {"key": "technique", "label": "研究技术", "keywords": [{"id": "g9", "text": "公共数据分析", "source": "system", "selected": False}, {"id": "g10", "text": "体内外功能验证", "source": "system", "selected": False}]},
-        ],
-    }
-
-
-def _fallback_terms(project: GrantProject) -> Dict[str, str]:
-    disease_path = _json_loads(project.disease_path, []) or []
-    disease = disease_path[-1] if disease_path else "目标疾病"
-    phenotype = project.phenotype or "关键表型"
-    variable = project.variable_name or project.variable_type or "核心变量"
-    subject = project.subject or f"{variable}调控{phenotype}在{disease}中的作用机制"
-    return {"disease": disease, "phenotype": phenotype, "variable": variable, "subject": subject}
-
-
-def _mock_references(project: GrantProject) -> List[Dict[str, Any]]:
-    terms = _fallback_terms(project)
-    variable = terms["variable"]
-    disease = terms["disease"]
-    phenotype = terms["phenotype"]
-    return [
-        {"id": "ref-1", "pmid": "", "doi": "", "title": f"{variable} 与 {phenotype} 在 {disease} 研究中的机制线索", "journal": "待真实检索", "year": None, "evidenceNote": "未检索到可用真实文献时生成的占位线索，需重新检索或人工补充后再用于正式申请书。", "selectedForGeneration": False, "database": "fallback"},
-        {"id": "ref-2", "pmid": "", "doi": "", "title": f"{disease} 中 {phenotype} 的研究进展与关键问题", "journal": "待真实检索", "year": None, "evidenceNote": "占位线索仅用于流程不中断，不作为真实参考文献。", "selectedForGeneration": False, "database": "fallback"},
-        {"id": "ref-3", "pmid": "", "doi": "", "title": f"围绕 {variable} 构建 {disease} 机制研究假说", "journal": "待真实检索", "year": None, "evidenceNote": "占位线索仅提示后续检索方向，不进入正式引用。", "selectedForGeneration": False, "database": "fallback"},
-    ]
-
-
-def _mock_topics(project: GrantProject) -> List[Dict[str, Any]]:
-    terms = _fallback_terms(project)
-    variable = terms["variable"]
-    disease = terms["disease"]
-    phenotype = terms["phenotype"]
-    titles = [
-        ("topic-1", f"{variable}调控{phenotype}影响{disease}发生发展的机制研究", f"聚焦 {variable} 与 {phenotype} 的因果关系，解释其在 {disease} 进展中的关键作用。", True, [84, 82, 86, 70]),
-        ("topic-2", f"{disease}中{variable}相关{phenotype}异质性及临床意义", f"从细胞或组织异质性切入，评估 {variable} 相关状态与临床分层之间的关系。", False, [81, 78, 82, 68]),
-        ("topic-3", f"{variable}介导{phenotype}形成的上游调控网络研究", "强调上游调控因素与网络机制，适合进一步凝练关键科学问题。", False, [85, 73, 80, 64]),
-        ("topic-4", f"靶向{variable}逆转{disease}中{phenotype}的实验研究", "面向机制干预和可验证实验路径，突出潜在转化价值。", False, [80, 76, 84, 66]),
-        ("topic-5", f"{variable}信号轴在{disease}微环境重塑中的作用", "把研究对象放入疾病微环境，关注细胞互作和局部状态改变。", False, [82, 74, 79, 65]),
-        ("topic-6", f"{phenotype}驱动{disease}治疗反应差异的机制研究", "围绕治疗响应差异设计，适合与临床样本或队列数据结合。", False, [78, 77, 81, 67]),
-        ("topic-7", f"{variable}与关键通路协同调控{phenotype}的机制", "加入协同通路或共变量，形成更完整但仍可收敛的机制框架。", False, [83, 70, 76, 62]),
-        ("topic-8", f"基于多组学解析{disease}中{variable}相关{phenotype}", "适合已有测序或组学基础的团队，强调数据驱动发现。", False, [79, 69, 75, 63]),
-        ("topic-9", f"{variable}影响{disease}进展的时空动态机制", "关注病程阶段和空间定位差异，适合构建动态机制模型。", False, [82, 68, 74, 61]),
-        ("topic-10", f"围绕{variable}构建{disease}风险评估与机制验证体系", "结合风险评估与机制验证，偏应用转化但需要注意基金属性匹配。", False, [75, 72, 70, 60]),
-    ]
-    return [
-        {
-            "id": id_,
-            "title": title,
-            "description": description,
-            "innovation": f"围绕 {variable}、{phenotype} 与 {disease} 的关键机制形成聚焦问题。",
-            "feasibility": "可通过临床样本、公共数据、体内外模型和机制干预实验组合验证。",
-            "fundFit": "问题相对聚焦，适合进一步收敛为青年基金或面上项目申请方向。",
-            "risk": "需要避免变量过多并明确关键机制节点。",
-            "score": {"innovation": score[0], "feasibility": score[1], "fundFit": score[2], "evidence": score[3]},
-            "referenceIds": ["ref-1", "ref-2"],
-            "selected": selected,
-        }
-        for id_, title, description, selected, score in titles
-    ]
-
-
-def _mock_report_sections(project: GrantProject) -> List[Dict[str, Any]]:
-    terms = _fallback_terms(project)
-    subject = terms["subject"]
-    variable = terms["variable"]
-    disease = terms["disease"]
-    phenotype = terms["phenotype"]
-    return [
-        {"key": "purpose", "title": "研究目的、意义", "markdown": f"本项目拟围绕“{subject}”开展研究，阐明 {variable} 与 {phenotype} 在 {disease} 中的作用关系，为后续机制验证和干预策略提供依据。"},
-        {"key": "content", "title": "研究内容及实现方案", "markdown": f"研究将从 {phenotype} 特征识别、{variable} 作用机制解析和功能干预验证三个层面展开，结合临床样本、公共数据分析和体内外实验形成闭环。"},
-        {"key": "hypothesis", "title": "科学问题和科学假说", "markdown": f"科学假说：{variable} 通过调控 {phenotype} 的形成或维持，影响 {disease} 的关键生物学过程；阻断或增强该环节可改变疾病相关表型。"},
-        {"key": "evaluation", "title": "选题评估", "markdown": "该题目已根据用户输入动态收敛，但当前内容为 AI 不可用时的结构化兜底，需要结合真实文献和专家判断继续细化。"},
-    ]
-
-
-def _mock_proposal_sections(project: GrantProject) -> List[Dict[str, Any]]:
-    terms = _fallback_terms(project)
-    subject = terms["subject"]
-    variable = terms["variable"]
-    disease = terms["disease"]
-    phenotype = terms["phenotype"]
-    return [
-        {"key": "abstract", "title": "中文摘要、关键词", "status": "needs_review", "wordCount": 260, "markdown": f"本项目拟围绕“{subject}”开展研究，重点分析 {variable} 与 {phenotype} 在 {disease} 中的关联及作用机制。当前为服务不可用时的结构化初稿，需要在真实 AI 生成或人工编辑后定稿。"},
-        {"key": "attribute", "title": "科学问题属性选择理由", "status": "needs_review", "wordCount": 220, "markdown": f"本项目从 {disease} 相关现象出发，凝练 {variable} 调控 {phenotype} 的基础科学问题，适合进一步明确科学问题属性。"},
-        {"key": "basis", "title": "项目立项依据", "status": "needs_review", "wordCount": 520, "markdown": f"{disease} 的发生发展涉及复杂调控网络，{phenotype} 是理解疾病机制的重要切入点。本项目以 {variable} 为核心变量，拟结合真实文献和预实验基础完善立项依据。"},
-        {"key": "content", "title": "项目的研究内容", "status": "needs_review", "wordCount": 360, "markdown": f"研究内容一：描述 {disease} 中 {phenotype} 的变化特征。研究内容二：解析 {variable} 对该表型的调控作用。研究内容三：通过干预实验验证关键机制。"},
-        {"key": "route", "title": "技术路线图", "status": "needs_review", "wordCount": 180, "markdown": "技术路线图章节待真实生成和语法校验，当前需在正式提交前人工复核。"},
-        {"key": "plan", "title": "年度研究计划及预期结果", "status": "needs_review", "wordCount": 300, "markdown": "第一年完成数据和样本基础整理；第二年开展机制解析和关键节点验证；第三年完成干预实验、结果整合和申请书成果沉淀。"},
-    ]
-
-
 def _strip_json_fence(content: str) -> str:
     text = content.strip()
     if text.startswith("```"):
@@ -271,24 +154,16 @@ def _strip_json_fence(content: str) -> str:
     return text
 
 
-async def _try_ai_json(project: GrantProject, prompt: str, fallback: Any) -> Any:
-    """Use the configured AI service only when it returns valid JSON.
-
-    The platform often runs without a real API key in local/demo environments.
-    In that case AIService returns a mock string, so we preserve deterministic
-    fallback data to keep the grant workflow usable and testable.
-    """
+async def _require_ai_json(prompt: str) -> Any:
     response = await ai_service.chat_completion([{"role": "user", "content": prompt}], temperature=0.5)
     content = response.get("content", "")
     if not content or content.startswith("[Mock Response]") or content.startswith("AI 服务"):
-        return fallback
+        raise HTTPException(status_code=502, detail="AI 生成失败，未写入生成内容，请检查模型配置或稍后重试")
 
     try:
-        parsed = json.loads(_strip_json_fence(content))
+        return json.loads(_strip_json_fence(content))
     except Exception:
-        return fallback
-
-    return parsed
+        raise HTTPException(status_code=502, detail="AI 返回内容不是合法 JSON，未写入生成内容，请重新生成")
 
 
 def _reference_search_query(project: GrantProject) -> str:
@@ -550,7 +425,6 @@ async def generate_keywords(
     current_user: Optional[AdminUser] = Depends(get_optional_admin),
 ):
     project = await _get_project(db, project_id, item.token, current_user)
-    fallback = _mock_keywords(project)
     prompt = f"""你是基金申报选题助手。请基于以下申报信息生成关键词结构，直接输出 JSON，不要输出 Markdown。
 
 {_grant_context(project)}
@@ -562,9 +436,9 @@ JSON 格式：
   "groups": [{{"key": "disease", "label": "关联疾病", "keywords": [{{"id": "g1", "text": "关键词", "source": "ai", "selected": true}}]}}]
 }}
 """
-    keywords = await _try_ai_json(project, prompt, fallback)
+    keywords = await _require_ai_json(prompt)
     if not isinstance(keywords, dict) or not {"must", "should", "groups"}.issubset(keywords.keys()):
-        keywords = fallback
+        raise HTTPException(status_code=502, detail="AI 返回的关键词结构不完整，未写入生成内容")
     project.keywords_json = _json_dumps(keywords)
     project.status = "keywords_ready"
     _save_step(db, project, "keywords", keywords)
@@ -597,8 +471,6 @@ async def search_references(
 ):
     project = await _get_project(db, project_id, item.token, current_user)
     references = await _search_real_references(project)
-    if not references:
-        references = _mock_references(project)
     project.references_json = _json_dumps(references)
     project.status = "references_ready"
     _save_step(db, project, "references", references)
@@ -615,9 +487,6 @@ async def generate_topics(
     current_user: Optional[AdminUser] = Depends(get_optional_admin),
 ):
     project = await _get_project(db, project_id, item.token, current_user)
-    if not project.references_json or project.references_json == "[]":
-        project.references_json = _json_dumps(_mock_references(project))
-    fallback = _mock_topics(project)
     prompt = f"""你是国家自然科学基金选题顾问。请基于申报信息、关键词和参考文献生成 10 个候选选题，直接输出 JSON 数组，不要输出 Markdown。
 
 {_grant_context(project)}
@@ -642,11 +511,11 @@ async def generate_topics(
   "selected": false
 }}
 """
-    topics = await _try_ai_json(project, prompt, fallback)
+    topics = await _require_ai_json(prompt)
     if isinstance(topics, dict) and isinstance(topics.get("topics"), list):
         topics = topics["topics"]
     if not isinstance(topics, list) or not topics:
-        topics = fallback
+        raise HTTPException(status_code=502, detail="AI 返回的候选题结构不完整，未写入生成内容")
     if not any(topic.get("selected") for topic in topics if isinstance(topic, dict)):
         topics[0]["selected"] = True
     project.topics_json = _json_dumps(topics)
@@ -691,7 +560,6 @@ async def generate_report(
     current_user: Optional[AdminUser] = Depends(get_optional_admin),
 ):
     project = await _get_project(db, project_id, item.token, current_user)
-    fallback = _mock_report_sections(project)
     prompt = f"""你是基金选题报告专家。请为已选题目生成选题报告章节，直接输出 JSON 数组，不要输出 Markdown。
 
 {_grant_context(project)}
@@ -706,11 +574,11 @@ async def generate_report(
 {{"key": "purpose", "title": "研究目的、意义", "markdown": "正文"}}
 必须包含：研究目的、意义；研究内容及实现方案；科学问题和科学假说；选题评估。
 """
-    sections = await _try_ai_json(project, prompt, fallback)
+    sections = await _require_ai_json(prompt)
     if isinstance(sections, dict) and isinstance(sections.get("sections"), list):
         sections = sections["sections"]
     if not isinstance(sections, list) or not sections:
-        sections = fallback
+        raise HTTPException(status_code=502, detail="AI 返回的选题报告结构不完整，未写入生成内容")
     project.report_sections_json = _json_dumps(sections)
     project.status = "report_ready"
     _save_step(db, project, "report", sections)
@@ -727,7 +595,6 @@ async def generate_proposal(
     current_user: Optional[AdminUser] = Depends(get_optional_admin),
 ):
     project = await _get_project(db, project_id, item.token, current_user)
-    fallback = _mock_proposal_sections(project)
     prompt = f"""你是国家自然科学基金申请书写作专家。请基于选题报告生成申请书初稿章节，直接输出 JSON 数组，不要输出 Markdown。
 
 {_grant_context(project)}
@@ -739,11 +606,11 @@ async def generate_proposal(
 {{"key": "abstract", "title": "中文摘要、关键词", "status": "ready", "wordCount": 500, "markdown": "正文"}}
 必须包含中文摘要、科学问题属性选择理由、项目立项依据、研究内容、技术路线图、年度研究计划及预期结果。
 """
-    sections = await _try_ai_json(project, prompt, fallback)
+    sections = await _require_ai_json(prompt)
     if isinstance(sections, dict) and isinstance(sections.get("sections"), list):
         sections = sections["sections"]
     if not isinstance(sections, list) or not sections:
-        sections = fallback
+        raise HTTPException(status_code=502, detail="AI 返回的申请书结构不完整，未写入生成内容")
     project.proposal_sections_json = _json_dumps(sections)
     project.status = "proposal_ready"
     _save_step(db, project, "proposal", sections)

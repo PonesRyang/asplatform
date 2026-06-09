@@ -207,7 +207,7 @@ function SidePanel({ project, currentStep }: { project: GrantProject; currentSte
         <Alert
           type="error"
           showIcon
-          message="技术路线图需要 Mermaid 校验和源码兜底。"
+          message="技术路线图需要 Mermaid 校验。"
         />
       </Card>
     </Space>
@@ -421,7 +421,7 @@ function TopicsPage({ project, onPrev, onNext, onSelectTopic, loading }: { proje
       <Alert
         type="info"
         showIcon
-        message="系统会先检索真实文献，再基于关键词和文献生成候选题；若 AI 服务返回不可用结果，候选题会标记为需复核的结构化兜底内容。"
+        message="系统会先检索真实文献，再基于关键词和文献调用 AI 生成候选题；若 AI 服务不可用，本步骤会直接失败并提示原因。"
         style={{ marginBottom: 16 }}
       />
       <Table
