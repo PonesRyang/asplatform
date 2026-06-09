@@ -308,10 +308,11 @@ function InputPage({ project, onNext, loading }: { project: GrantProject; onNext
   );
 }
 
-function KeywordsPage({ project, onPrev, onGenerateKeywords, onNext, loading }: { project: GrantProject; onPrev: () => void; onGenerateKeywords: () => void; onNext: () => void; loading: boolean }) {
+function KeywordsPage({ project, onPrev, onGenerateKeywords, onSearchReferences, onNext, loading }: { project: GrantProject; onPrev: () => void; onGenerateKeywords: () => void; onSearchReferences: () => void; onNext: () => void; loading: boolean }) {
   const selectedShould = project.keywords.should.filter(keyword => keyword.selected);
   const expression = `(${project.keywords.must.map(keyword => keyword.text).join(' AND ') || '等待生成'}) AND (${selectedShould.map(keyword => keyword.text).join(' OR ') || '等待生成'})`;
   const hasKeywords = project.keywords.must.length > 0 || project.keywords.should.length > 0 || project.keywords.groups.length > 0;
+  const hasReferences = project.references.length > 0;
 
   return (
     <SectionCard
@@ -370,8 +371,16 @@ function KeywordsPage({ project, onPrev, onGenerateKeywords, onNext, loading }: 
 
       <SectionCard
         title="文献检索预览"
-        extra={<Tag>生成选题前自动检索</Tag>}
+        extra={<Button size="small" loading={loading} disabled={!hasKeywords} onClick={onSearchReferences}>{hasReferences ? '重新检索文献' : '检索文献'}</Button>}
       >
+        {!hasReferences && (
+          <Alert
+            type="info"
+            showIcon
+            message={hasKeywords ? '点击“检索文献”后，这里会显示真实数据库返回的文献。' : '请先生成关键词，再检索文献。'}
+            style={{ marginBottom: 12 }}
+          />
+        )}
         <List
           dataSource={project.references}
           renderItem={item => (
@@ -400,7 +409,8 @@ function KeywordsPage({ project, onPrev, onGenerateKeywords, onNext, loading }: 
       <Space>
         <Button icon={<ArrowLeftOutlined />} onClick={onPrev}>上一步</Button>
         <Button loading={loading} onClick={onGenerateKeywords}>AI 生成关键词</Button>
-        <Button type="primary" icon={<ArrowRightOutlined />} loading={loading} disabled={!hasKeywords} onClick={onNext}>生成创新选题</Button>
+        <Button loading={loading} disabled={!hasKeywords} onClick={onSearchReferences}>{hasReferences ? '重新检索文献' : '检索文献'}</Button>
+        <Button type="primary" icon={<ArrowRightOutlined />} loading={loading} disabled={!hasKeywords || !hasReferences} onClick={onNext}>生成创新选题</Button>
       </Space>
     </SectionCard>
   );
@@ -792,17 +802,45 @@ export default function GrantApplicationWorkbench() {
     }
   };
 
+  const handleSearchReferences = async () => {
+    if (!serviceToken) {
+      message.warning('请先输入服务令牌');
+      return;
+    }
+    if (project.id <= 0) {
+      message.warning('请先保存申报项目');
+      return;
+    }
+    if (project.keywords.must.length === 0 && project.keywords.should.length === 0) {
+      message.warning('请先生成关键词');
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await searchGrantReferences(project.id, serviceToken);
+      setProject(data);
+      message.success(data.references.length > 0 ? `已检索到 ${data.references.length} 条文献` : '未检索到文献，请调整关键词后重试');
+    } catch (error: any) {
+      message.error(error?.response?.data?.detail || error?.message || '文献检索失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleKeywordsNext = async () => {
     if (!serviceToken) {
       message.warning('请先输入服务令牌');
       return;
     }
+    if (project.references.length === 0) {
+      message.warning('请先检索文献');
+      return;
+    }
     setLoading(true);
     try {
-      const withRefs = await searchGrantReferences(project.id, serviceToken);
-      const withTopics = await generateGrantTopics(withRefs.id, serviceToken);
+      const withTopics = await generateGrantTopics(project.id, serviceToken);
       setProject(withTopics);
-      message.success('文献检索和候选选题已生成');
+      message.success('候选选题已生成');
       navigate(`/frontend/grant/projects/${withTopics.id}/topics`);
     } catch (error: any) {
       message.error(error?.response?.data?.detail || error?.message || '生成创新选题失败');
@@ -862,7 +900,7 @@ export default function GrantApplicationWorkbench() {
       case 'input':
         return <InputPage project={project} loading={loading} onNext={handleInputNext} />;
       case 'keywords':
-        return <KeywordsPage project={project} loading={loading} onPrev={prev} onGenerateKeywords={handleGenerateKeywords} onNext={handleKeywordsNext} />;
+        return <KeywordsPage project={project} loading={loading} onPrev={prev} onGenerateKeywords={handleGenerateKeywords} onSearchReferences={handleSearchReferences} onNext={handleKeywordsNext} />;
       case 'topics':
         return <TopicsPage project={project} loading={loading} onPrev={prev} onNext={handleTopicsNext} onSelectTopic={handleSelectTopic} />;
       case 'report':
