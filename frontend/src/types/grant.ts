@@ -36,9 +36,12 @@ export interface GrantReference {
   doi?: string
   title: string
   journal: string
-  year: number
+  year?: number | null
   evidenceNote: string
   selectedForGeneration: boolean
+  link?: string
+  database?: string
+  formatted?: string
 }
 
 export interface GrantCandidateTopic {

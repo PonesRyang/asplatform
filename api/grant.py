@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import io
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -26,7 +27,7 @@ from schemas.grant import (
     GrantTopicSelect,
 )
 from utils.auth import check_permission, get_optional_admin, verify_token
-from services import ai_service
+from services import ai_service, literature_service
 
 router = APIRouter(prefix="/api/ai/grant", tags=["grant"])
 
@@ -256,6 +257,105 @@ async def _try_ai_json(project: GrantProject, prompt: str, fallback: Any) -> Any
     return parsed
 
 
+def _reference_search_query(project: GrantProject) -> str:
+    keywords = _json_loads(project.keywords_json, {"must": [], "should": []})
+    terms: List[str] = []
+
+    for keyword in keywords.get("must", []):
+        if keyword.get("selected", True) and keyword.get("text"):
+            terms.append(str(keyword["text"]))
+
+    for keyword in keywords.get("should", []):
+        if keyword.get("selected", True) and keyword.get("text"):
+            terms.append(str(keyword["text"]))
+
+    for value in [
+        project.subject,
+        project.phenotype,
+        project.variable_name,
+        *(_json_loads(project.disease_path, []) or []),
+    ]:
+        if value:
+            terms.append(str(value))
+
+    deduped: List[str] = []
+    seen = set()
+    for term in terms:
+        normalized = term.strip()
+        if normalized and normalized.lower() not in seen:
+            deduped.append(normalized)
+            seen.add(normalized.lower())
+
+    return " ".join(deduped[:8])
+
+
+def _citation_year(value: Any) -> Optional[int]:
+    if value is None:
+        return None
+    text = json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value)
+    match = re.search(r"\b(19|20)\d{2}\b", text)
+    if match:
+        return int(match.group(0))
+    return None
+
+
+def _citation_to_reference(citation: Dict[str, Any], index: int, query: str) -> Optional[Dict[str, Any]]:
+    title = str(citation.get("title") or "").strip()
+    if not title:
+        return None
+
+    link = citation.get("link") or ""
+    pmid = citation.get("pmid") or citation.get("PMID") or citation.get("id") or ""
+    if not pmid and "pubmed.ncbi.nlm.nih.gov/" in link:
+        pmid = link.rstrip("/").split("/")[-1]
+
+    journal = citation.get("source") or citation.get("journal") or citation.get("container-title") or ""
+    if isinstance(journal, list):
+        journal = journal[0] if journal else ""
+
+    database = citation.get("database") or "学术数据库"
+    year = _citation_year(citation.get("year") or citation.get("published") or citation.get("pubdate"))
+
+    return {
+        "id": f"ref-{index}",
+        "pmid": str(pmid or ""),
+        "doi": str(citation.get("doi") or citation.get("DOI") or ""),
+        "title": title,
+        "journal": str(journal or ""),
+        "year": year,
+        "evidenceNote": f"来自{database}，与检索式「{query}」相关，可用于支撑选题依据与研究背景。",
+        "selectedForGeneration": index <= 5,
+        "link": str(link or ""),
+        "database": str(database),
+        "formatted": str(citation.get("formatted") or ""),
+    }
+
+
+async def _search_real_references(project: GrantProject) -> List[Dict[str, Any]]:
+    query = _reference_search_query(project)
+    if not query:
+        return []
+
+    try:
+        citations = await literature_service.search_literature(query, max_results=10)
+    except Exception:
+        return []
+
+    references: List[Dict[str, Any]] = []
+    seen_titles = set()
+    for citation in citations:
+        reference = _citation_to_reference(citation, len(references) + 1, query)
+        if not reference:
+            continue
+        normalized_title = reference["title"].lower()
+        if normalized_title in seen_titles:
+            continue
+        seen_titles.add(normalized_title)
+        references.append(reference)
+
+    return references
+
+
 def _grant_context(project: GrantProject) -> str:
     return "\n".join([
         f"课题类型：{project.fund_type}",
@@ -462,8 +562,11 @@ async def search_references(
     current_user: Optional[AdminUser] = Depends(get_optional_admin),
 ):
     project = await _get_project(db, project_id, item.token, current_user)
-    references = _mock_references()
+    references = await _search_real_references(project)
+    if not references:
+        references = _mock_references()
     project.references_json = _json_dumps(references)
+    project.status = "references_ready"
     _save_step(db, project, "references", references)
     db.commit()
     db.refresh(project)

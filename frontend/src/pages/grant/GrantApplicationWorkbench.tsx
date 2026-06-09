@@ -36,7 +36,7 @@ import {
   SaveOutlined,
 } from '@ant-design/icons';
 import { grantMockProject, grantSteps } from './grantMockData';
-import type { GrantCandidateTopic, GrantProject, GrantProposalSection, GrantStepKey } from '../../types/grant';
+import type { GrantCandidateTopic, GrantProject, GrantProposalSection, GrantReference, GrantStepKey } from '../../types/grant';
 import { useServiceToken } from '../../hooks/useServiceToken';
 import {
   createGrantProject,
@@ -71,6 +71,16 @@ function scoreColor(score: number) {
   if (score >= 85) return '#0f8f6f';
   if (score >= 75) return '#2458d3';
   return '#a16207';
+}
+
+function referenceMeta(reference: GrantReference) {
+  return [
+    reference.journal,
+    reference.year ? String(reference.year) : '',
+    reference.pmid ? `PMID ${reference.pmid}` : '',
+    reference.doi ? `DOI ${reference.doi}` : '',
+    reference.database,
+  ].filter(Boolean).join(' · ');
 }
 
 function SectionCard(props: { title: string; extra?: ReactNode; children: ReactNode }) {
@@ -335,8 +345,20 @@ function KeywordsPage({ project, onPrev, onNext, loading }: { project: GrantProj
           renderItem={item => (
             <List.Item>
               <List.Item.Meta
-                title={<Space><Text strong>{item.title}</Text><Tag>{item.year}</Tag></Space>}
-                description={`${item.journal} · PMID ${item.pmid} · ${item.evidenceNote}`}
+                title={
+                  <Space wrap>
+                    <Text strong>{item.title}</Text>
+                    {item.year && <Tag>{item.year}</Tag>}
+                    {item.database && <Tag color="blue">{item.database}</Tag>}
+                  </Space>
+                }
+                description={
+                  <Space direction="vertical" size={2}>
+                    <Text type="secondary">{referenceMeta(item)}</Text>
+                    <Text type="secondary">{item.evidenceNote}</Text>
+                    {item.link && <Typography.Link href={item.link} target="_blank">查看来源</Typography.Link>}
+                  </Space>
+                }
               />
             </List.Item>
           )}
