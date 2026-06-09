@@ -200,20 +200,6 @@ function SidePanel({ project, currentStep }: { project: GrantProject; currentSte
         <Paragraph style={{ marginBottom: 8 }} strong>{selectedTopic?.title}</Paragraph>
         <Text type="secondary">{selectedTopic?.description}</Text>
       </Card>
-
-      <Card title="工程提醒" style={{ borderRadius: 8 }}>
-        <Alert
-          type="warning"
-          showIcon
-          message="报告和申请书生成需要流式输出或后台任务恢复。"
-          style={{ marginBottom: 10 }}
-        />
-        <Alert
-          type="error"
-          showIcon
-          message="技术路线图需要 Mermaid 校验。"
-        />
-      </Card>
     </Space>
   );
 }
@@ -597,6 +583,7 @@ function ProposalPage({
   const activeSection = project.proposalSections.find(section => section.key === selectedSectionKey)
     || project.proposalSections[0]
     || { title: '申请书章节', markdown: '', status: 'pending', wordCount: 0, key: 'empty' } as GrantProposalSection;
+  const isRouteSection = activeSection.title.includes('技术路线');
 
   return (
     <SectionCard
@@ -625,12 +612,14 @@ function ProposalPage({
           />
         </Col>
         <Col span={17}>
-          <Alert
-            type="warning"
-            showIcon
-            message="技术路线图章节需要在正式提交前完成语法校验和人工复核。"
-            style={{ marginBottom: 12 }}
-          />
+          {isRouteSection && (
+            <Alert
+              type="info"
+              showIcon
+              message="当前章节包含技术路线内容，正式提交前建议核对图示、步骤关系和文字说明。"
+              style={{ marginBottom: 12 }}
+            />
+          )}
           <Title level={5}>{activeSection.title}</Title>
           <TextArea rows={12} value={activeSection.markdown} readOnly />
         </Col>
