@@ -26,6 +26,7 @@ from schemas.grant import (
     GrantTopicSelect,
 )
 from utils.auth import check_permission, get_optional_admin, verify_token
+from services import ai_service
 
 router = APIRouter(prefix="/api/ai/grant", tags=["grant"])
 
@@ -223,6 +224,49 @@ def _mock_proposal_sections() -> List[Dict[str, Any]]:
     ]
 
 
+def _strip_json_fence(content: str) -> str:
+    text = content.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+    return text
+
+
+async def _try_ai_json(project: GrantProject, prompt: str, fallback: Any) -> Any:
+    """Use the configured AI service only when it returns valid JSON.
+
+    The platform often runs without a real API key in local/demo environments.
+    In that case AIService returns a mock string, so we preserve deterministic
+    fallback data to keep the grant workflow usable and testable.
+    """
+    response = await ai_service.chat_completion([{"role": "user", "content": prompt}], temperature=0.5)
+    content = response.get("content", "")
+    if not content or content.startswith("[Mock Response]") or content.startswith("AI 服务"):
+        return fallback
+
+    try:
+        parsed = json.loads(_strip_json_fence(content))
+    except Exception:
+        return fallback
+
+    return parsed
+
+
+def _grant_context(project: GrantProject) -> str:
+    return "\n".join([
+        f"课题类型：{project.fund_type}",
+        f"研究方向：{' / '.join(_json_loads(project.research_area_path, []))}",
+        f"申请书主题：{project.subject or ''}",
+        f"疾病：{' / '.join(_json_loads(project.disease_path, []))}",
+        f"表型/科学问题：{project.phenotype or ''}",
+        f"主变量：{project.variable_type or ''} / {project.variable_name or ''}",
+    ])
+
+
 def _add_docx_paragraph(document, text: str, style: Optional[str] = None):
     paragraph = document.add_paragraph(style=style)
     run = paragraph.add_run(text)
@@ -372,7 +416,21 @@ async def generate_keywords(
     current_user: Optional[AdminUser] = Depends(get_optional_admin),
 ):
     project = await _get_project(db, project_id, item.token, current_user)
-    keywords = _mock_keywords(project)
+    fallback = _mock_keywords(project)
+    prompt = f"""你是基金申报选题助手。请基于以下申报信息生成关键词结构，直接输出 JSON，不要输出 Markdown。
+
+{_grant_context(project)}
+
+JSON 格式：
+{{
+  "must": [{{"id": "must-1", "text": "必须包含关键词", "source": "ai", "selected": true}}],
+  "should": [{{"id": "or-1", "text": "可选关键词", "source": "ai", "selected": true, "groupKey": "disease"}}],
+  "groups": [{{"key": "disease", "label": "关联疾病", "keywords": [{{"id": "g1", "text": "关键词", "source": "ai", "selected": true}}]}}]
+}}
+"""
+    keywords = await _try_ai_json(project, prompt, fallback)
+    if not isinstance(keywords, dict) or not {"must", "should", "groups"}.issubset(keywords.keys()):
+        keywords = fallback
     project.keywords_json = _json_dumps(keywords)
     project.status = "keywords_ready"
     _save_step(db, project, "keywords", keywords)
@@ -422,7 +480,38 @@ async def generate_topics(
     project = await _get_project(db, project_id, item.token, current_user)
     if not project.references_json or project.references_json == "[]":
         project.references_json = _json_dumps(_mock_references())
-    topics = _mock_topics()
+    fallback = _mock_topics()
+    prompt = f"""你是国家自然科学基金选题顾问。请基于申报信息、关键词和参考文献生成 10 个候选选题，直接输出 JSON 数组，不要输出 Markdown。
+
+{_grant_context(project)}
+
+关键词：
+{project.keywords_json or ""}
+
+参考文献：
+{project.references_json or ""}
+
+每个数组元素格式：
+{{
+  "id": "topic-1",
+  "title": "题目",
+  "description": "一句话说明",
+  "innovation": "创新点",
+  "feasibility": "可行性",
+  "fundFit": "基金匹配度",
+  "risk": "风险",
+  "score": {{"innovation": 85, "feasibility": 80, "fundFit": 88, "evidence": 78}},
+  "referenceIds": ["ref-1"],
+  "selected": false
+}}
+"""
+    topics = await _try_ai_json(project, prompt, fallback)
+    if isinstance(topics, dict) and isinstance(topics.get("topics"), list):
+        topics = topics["topics"]
+    if not isinstance(topics, list) or not topics:
+        topics = fallback
+    if not any(topic.get("selected") for topic in topics if isinstance(topic, dict)):
+        topics[0]["selected"] = True
     project.topics_json = _json_dumps(topics)
     project.status = "topics_ready"
     project.title = topics[0]["title"]
@@ -465,7 +554,26 @@ async def generate_report(
     current_user: Optional[AdminUser] = Depends(get_optional_admin),
 ):
     project = await _get_project(db, project_id, item.token, current_user)
-    sections = _mock_report_sections()
+    fallback = _mock_report_sections()
+    prompt = f"""你是基金选题报告专家。请为已选题目生成选题报告章节，直接输出 JSON 数组，不要输出 Markdown。
+
+{_grant_context(project)}
+
+候选题：
+{project.topics_json or ""}
+
+参考文献：
+{project.references_json or ""}
+
+数组元素格式：
+{{"key": "purpose", "title": "研究目的、意义", "markdown": "正文"}}
+必须包含：研究目的、意义；研究内容及实现方案；科学问题和科学假说；选题评估。
+"""
+    sections = await _try_ai_json(project, prompt, fallback)
+    if isinstance(sections, dict) and isinstance(sections.get("sections"), list):
+        sections = sections["sections"]
+    if not isinstance(sections, list) or not sections:
+        sections = fallback
     project.report_sections_json = _json_dumps(sections)
     project.status = "report_ready"
     _save_step(db, project, "report", sections)
@@ -482,7 +590,23 @@ async def generate_proposal(
     current_user: Optional[AdminUser] = Depends(get_optional_admin),
 ):
     project = await _get_project(db, project_id, item.token, current_user)
-    sections = _mock_proposal_sections()
+    fallback = _mock_proposal_sections()
+    prompt = f"""你是国家自然科学基金申请书写作专家。请基于选题报告生成申请书初稿章节，直接输出 JSON 数组，不要输出 Markdown。
+
+{_grant_context(project)}
+
+选题报告：
+{project.report_sections_json or ""}
+
+数组元素格式：
+{{"key": "abstract", "title": "中文摘要、关键词", "status": "ready", "wordCount": 500, "markdown": "正文"}}
+必须包含中文摘要、科学问题属性选择理由、项目立项依据、研究内容、技术路线图、年度研究计划及预期结果。
+"""
+    sections = await _try_ai_json(project, prompt, fallback)
+    if isinstance(sections, dict) and isinstance(sections.get("sections"), list):
+        sections = sections["sections"]
+    if not isinstance(sections, list) or not sections:
+        sections = fallback
     project.proposal_sections_json = _json_dumps(sections)
     project.status = "proposal_ready"
     _save_step(db, project, "proposal", sections)
