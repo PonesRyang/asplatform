@@ -647,6 +647,8 @@ export default function GrantApplicationWorkbench() {
     const match = location.pathname.match(/\/projects\/(\d+)/);
     return match ? Number(match[1]) : null;
   }, [location.pathname]);
+  const isProjectListRoute = location.pathname.replace(/\/$/, '') === '/frontend/grant';
+  const isNewProjectRoute = !routeProjectId && currentStep === 'input' && !isProjectListRoute;
 
   const goStep = (step: GrantStepKey) => {
     if (project.id > 0) {
@@ -827,7 +829,7 @@ export default function GrantApplicationWorkbench() {
     }
   }, [currentStep, currentIndex, project, loading]);
 
-  if (!routeProjectId) {
+  if (!routeProjectId && !isNewProjectRoute) {
     return (
       <ProjectListPage
         projects={projectSummaries}
@@ -835,6 +837,21 @@ export default function GrantApplicationWorkbench() {
         onCreate={handleCreateProject}
         onOpen={handleOpenProject}
       />
+    );
+  }
+
+  if (isNewProjectRoute) {
+    return (
+      <div style={{ background: '#f5f7fb', margin: -24, padding: 24, minHeight: 'calc(100vh - 112px)' }}>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} xl={18}>
+            <InputPage project={project} loading={loading} onNext={handleInputNext} />
+          </Col>
+          <Col xs={24} xl={6}>
+            <SidePanel project={project} currentStep="input" />
+          </Col>
+        </Row>
+      </div>
     );
   }
 
