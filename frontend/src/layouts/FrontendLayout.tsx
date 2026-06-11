@@ -5,7 +5,6 @@ import {
   ExperimentOutlined, EditOutlined, BookOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined,
   FileTextOutlined, PlusOutlined, ToolOutlined,
-  EyeOutlined,
   FundProjectionScreenOutlined,
 } from '@ant-design/icons';
 import ServiceTokenGuard from '../components/common/ServiceTokenGuard';
@@ -39,8 +38,6 @@ function getKey(pathname: string) {
   for (const m of menuItems) if (pathname.startsWith(m.path)) return m.key;
   return 'bio';
 }
-
-const grantPrototypePath = '/prototypes/grant-pages/01-input-topic-info.html';
 
 function FrontendLayoutInner() {
   const navigate = useNavigate();
@@ -151,12 +148,6 @@ function FrontendLayoutInner() {
             <TokenQuotaBar total={tokenInfo?.ai_quota ?? 0} used={tokenInfo?.used_quota ?? 0} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Button
-              icon={<EyeOutlined />}
-              onClick={() => window.open(grantPrototypePath, '_blank', 'noopener,noreferrer')}
-            >
-              查看课题申报原型
-            </Button>
             <Button type="text" icon={<LogoutOutlined />} onClick={() => { clearToken(); navigate('/'); }} danger>退出</Button>
           </div>
         </Header>
