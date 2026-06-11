@@ -18,6 +18,7 @@ class LiteratureService:
         self.cache = {}
         self.cache_ttl = 3600  # Cache for 1 hour
         self.pubmed_query_cache = {}
+        self.arxiv_query_cache = {}
 
     def _has_cjk(self, value: str) -> bool:
         return bool(re.search(r"[\u4e00-\u9fff]", value or ""))
@@ -165,6 +166,53 @@ class LiteratureService:
         expanded = self._compose_pubmed_query(merged)
         effective_query = expanded or query
         self.pubmed_query_cache[query] = effective_query
+        return effective_query
+
+    def _arxiv_clause(self, terms: List[str]) -> Optional[str]:
+        parts = []
+        for term in terms:
+            value = re.sub(r"\s+", " ", str(term or "").strip())
+            if not value or self._has_cjk(value):
+                continue
+            escaped = value.replace('"', "")
+            if " " in escaped:
+                parts.append(f'all:"{escaped}"')
+            else:
+                parts.append(f"all:{escaped}")
+        if not parts:
+            return None
+        return "(" + " OR ".join(dict.fromkeys(parts)) + ")"
+
+    def _compose_arxiv_query(self, concepts: List[List[str]]) -> Optional[str]:
+        clauses = [self._arxiv_clause(terms) for terms in concepts]
+        clauses = [clause for clause in clauses if clause]
+        if not clauses:
+            return None
+        return " AND ".join(clauses[:5])
+
+    async def _build_arxiv_query(self, query: str) -> str:
+        if not self._has_cjk(query):
+            return f"all:{query}"
+
+        if query in self.arxiv_query_cache:
+            return self.arxiv_query_cache[query]
+
+        concepts = self._local_pubmed_concepts(query)
+        ai_concepts = []
+        if len(concepts) < 2:
+            ai_concepts = await self._ai_pubmed_concepts(query)
+
+        merged = concepts[:]
+        existing_terms = {term.lower() for group in merged for term in group}
+        for group in ai_concepts:
+            fresh = [term for term in group if term.lower() not in existing_terms]
+            if fresh:
+                merged.append(fresh)
+                existing_terms.update(term.lower() for term in fresh)
+
+        expanded = self._compose_arxiv_query(merged)
+        effective_query = expanded or f"all:{query}"
+        self.arxiv_query_cache[query] = effective_query
         return effective_query
 
     def _format_citation(self, authors: List[str], title: str, source: str, pubdate: str, doi: str = "", style: str = "apa") -> dict:
@@ -429,10 +477,9 @@ class LiteratureService:
 
     async def _search_arxiv(self, query: str, max_results: int = 5) -> List[dict]:
         """Search arXiv for preprints (useful for CS, Physics, Math)"""
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             try:
-                # arXiv uses OAI-PMH style interface
-                search_query = f"all:{query}"
+                search_query = await self._build_arxiv_query(query)
                 params = {
                     "search_query": search_query,
                     "start": 0,
