@@ -2,8 +2,9 @@ import httpx
 import asyncio
 import time
 import re
+import json
 import xml.etree.ElementTree as ET
-from typing import List
+from typing import List, Optional
 
 
 class LiteratureService:
@@ -16,6 +17,155 @@ class LiteratureService:
         # Simple in-memory cache: {query: {citations: [], timestamp: float}}
         self.cache = {}
         self.cache_ttl = 3600  # Cache for 1 hour
+        self.pubmed_query_cache = {}
+
+    def _has_cjk(self, value: str) -> bool:
+        return bool(re.search(r"[\u4e00-\u9fff]", value or ""))
+
+    def _strip_json_fence(self, content: str) -> str:
+        text = (content or "").strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```$", "", text)
+        return text.strip()
+
+    def _local_pubmed_concepts(self, query: str) -> List[List[str]]:
+        dictionary = {
+            "肿瘤": ["neoplasms", "cancer", "tumor"],
+            "癌": ["neoplasms", "cancer", "carcinoma"],
+            "癌症": ["neoplasms", "cancer"],
+            "白血病": ["leukemia"],
+            "肺癌": ["lung neoplasms", "lung cancer"],
+            "乳腺癌": ["breast neoplasms", "breast cancer"],
+            "胃癌": ["stomach neoplasms", "gastric cancer"],
+            "肝癌": ["liver neoplasms", "hepatocellular carcinoma"],
+            "结直肠癌": ["colorectal neoplasms", "colorectal cancer"],
+            "糖尿病": ["diabetes mellitus"],
+            "高血压": ["hypertension"],
+            "冠心病": ["coronary artery disease"],
+            "心肌梗死": ["myocardial infarction"],
+            "心力衰竭": ["heart failure"],
+            "脑卒中": ["stroke"],
+            "阿尔茨海默病": ["alzheimer disease"],
+            "帕金森病": ["parkinson disease"],
+            "慢阻肺": ["pulmonary disease, chronic obstructive", "COPD"],
+            "哮喘": ["asthma"],
+            "肥胖": ["obesity"],
+            "炎症": ["inflammation"],
+            "免疫": ["immunity", "immune response"],
+            "感染": ["infection"],
+            "机器学习": ["machine learning"],
+            "深度学习": ["deep learning"],
+            "人工智能": ["artificial intelligence"],
+            "预测模型": ["prediction model", "risk prediction"],
+            "风险预测": ["risk prediction"],
+            "生物标志物": ["biomarkers"],
+            "基因": ["genes"],
+            "蛋白": ["proteins"],
+            "代谢": ["metabolism"],
+            "表型": ["phenotype"],
+            "诊断": ["diagnosis"],
+            "治疗": ["therapy", "treatment"],
+            "预后": ["prognosis"],
+            "队列": ["cohort studies"],
+            "随机对照": ["randomized controlled trial"],
+            "荟萃分析": ["meta-analysis"],
+            "系统评价": ["systematic review"],
+        }
+        concepts = []
+        for phrase, terms in sorted(dictionary.items(), key=lambda item: len(item[0]), reverse=True):
+            if phrase in query:
+                concepts.append(terms)
+        deduped = []
+        seen = set()
+        for terms in concepts:
+            key = tuple(term.lower() for term in terms)
+            if key not in seen:
+                deduped.append(terms)
+                seen.add(key)
+        return deduped[:5]
+
+    def _pubmed_clause(self, terms: List[str]) -> Optional[str]:
+        parts = []
+        for term in terms:
+            value = re.sub(r"\s+", " ", str(term or "").strip())
+            if not value or self._has_cjk(value):
+                continue
+            escaped = value.replace('"', "")
+            parts.append(f'"{escaped}"[MeSH Terms]')
+            parts.append(f'"{escaped}"[Title/Abstract]')
+        if not parts:
+            return None
+        return "(" + " OR ".join(dict.fromkeys(parts)) + ")"
+
+    def _compose_pubmed_query(self, concepts: List[List[str]]) -> Optional[str]:
+        clauses = [self._pubmed_clause(terms) for terms in concepts]
+        clauses = [clause for clause in clauses if clause]
+        if not clauses:
+            return None
+        return " AND ".join(clauses[:5])
+
+    async def _ai_pubmed_concepts(self, query: str) -> List[List[str]]:
+        try:
+            from services import ai_service
+
+            prompt = f"""请把下面中文医学/科研检索词抽取为 PubMed 适用的英文关键词和 MeSH 候选词。
+只输出 JSON，不要 Markdown，不要解释。
+
+输入：{query}
+
+输出格式：
+{{"concepts":[{{"terms":["english term","MeSH term","synonym"]}}]}}
+
+要求：
+1. 每个 concepts 元素表示一个核心概念，同一概念内 terms 是近义词。
+2. 最多 5 个核心概念，每个概念最多 4 个英文词。
+3. 不要输出中文。"""
+            result = await ai_service.chat_completion([{"role": "user", "content": prompt}], temperature=0.1)
+            content = result.get("content", "")
+            if content.startswith("[Mock Response]") or content.startswith("AI 服务"):
+                return []
+            data = json.loads(self._strip_json_fence(content))
+            concepts = []
+            for concept in data.get("concepts", []):
+                terms = concept.get("terms", [])
+                if isinstance(terms, list):
+                    clean = [
+                        re.sub(r"\s+", " ", str(term).strip())
+                        for term in terms
+                        if str(term).strip() and not self._has_cjk(str(term))
+                    ]
+                    if clean:
+                        concepts.append(clean[:4])
+            return concepts[:5]
+        except Exception as e:
+            print(f"PubMed query expansion error: {e}")
+            return []
+
+    async def _build_pubmed_query(self, query: str) -> str:
+        if not self._has_cjk(query):
+            return query
+
+        if query in self.pubmed_query_cache:
+            return self.pubmed_query_cache[query]
+
+        concepts = self._local_pubmed_concepts(query)
+        ai_concepts = []
+        if len(concepts) < 2:
+            ai_concepts = await self._ai_pubmed_concepts(query)
+
+        merged = concepts[:]
+        existing_terms = {term.lower() for group in merged for term in group}
+        for group in ai_concepts:
+            fresh = [term for term in group if term.lower() not in existing_terms]
+            if fresh:
+                merged.append(fresh)
+                existing_terms.update(term.lower() for term in fresh)
+
+        expanded = self._compose_pubmed_query(merged)
+        effective_query = expanded or query
+        self.pubmed_query_cache[query] = effective_query
+        return effective_query
 
     def _format_citation(self, authors: List[str], title: str, source: str, pubdate: str, doi: str = "", style: str = "apa") -> dict:
         """Format a citation with full metadata in specified style
@@ -93,10 +243,11 @@ class LiteratureService:
         """Search PubMed for real academic literature"""
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             try:
+                effective_query = await self._build_pubmed_query(query)
                 # Search for PMIDs
                 search_params = {
                     "db": "pubmed",
-                    "term": query,
+                    "term": effective_query,
                     "retmax": max_results,
                     "retmode": "json",
                     "sort": "relevance"
