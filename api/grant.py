@@ -32,6 +32,7 @@ from schemas.grant import (
 )
 from utils.auth import check_permission, get_optional_admin, verify_token
 from services import ai_service, literature_service
+from services.literature_sources import normalize_literature_databases
 
 router = APIRouter(prefix="/api/ai/grant", tags=["grant"])
 
@@ -320,13 +321,13 @@ def _citation_to_reference(citation: Dict[str, Any], index: int, query: str) -> 
     }
 
 
-async def _search_real_references(project: GrantProject) -> List[Dict[str, Any]]:
+async def _search_real_references(project: GrantProject, databases: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     query = _reference_search_query(project)
     if not query:
         return []
 
     try:
-        citations = await literature_service.search_literature(query, max_results=10)
+        citations = await literature_service.search_literature(query, max_results=10, databases=databases)
     except Exception:
         return []
 
@@ -593,7 +594,8 @@ async def search_references(
     current_user: Optional[AdminUser] = Depends(get_optional_admin),
 ):
     project = await _get_project(db, project_id, item.token, current_user)
-    references = await _search_real_references(project)
+    databases = normalize_literature_databases(db, item.databases, module="grant")
+    references = await _search_real_references(project, databases)
     project.references_json = _json_dumps(references)
     project.status = "references_ready"
     _save_step(db, project, "references", references)

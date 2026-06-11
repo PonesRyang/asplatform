@@ -103,8 +103,8 @@ export async function generateGrantKeywords(projectId: number, token: string): P
   return fromApiProject(response.data)
 }
 
-export async function searchGrantReferences(projectId: number, token: string): Promise<GrantProject> {
-  const response = await api.post<GrantProjectApiResponse>(`/api/ai/grant/projects/${projectId}/references/search`, { token })
+export async function searchGrantReferences(projectId: number, token: string, databases?: string[]): Promise<GrantProject> {
+  const response = await api.post<GrantProjectApiResponse>(`/api/ai/grant/projects/${projectId}/references/search`, { token, databases })
   return fromApiProject(response.data)
 }
 

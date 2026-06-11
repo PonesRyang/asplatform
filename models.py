@@ -130,3 +130,17 @@ class GrantConfigItem(Base):
     source = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
+
+class LiteratureDatabaseConfig(Base):
+    __tablename__ = "literature_database_configs"
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(64), unique=True, index=True)
+    name = Column(String(255), index=True)
+    description = Column(Text, nullable=True)
+    modules = Column(String(255), default="all")  # Comma separated: all,grant,writing,literature
+    is_enabled = Column(Boolean, default=True)
+    default_selected = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))

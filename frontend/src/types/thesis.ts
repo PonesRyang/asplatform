@@ -49,6 +49,7 @@ export interface ThesisOutlineRequest {
   project_id: number
   token: string
   instructions?: string
+  databases?: string[]
 }
 
 export interface ThesisFullTextRequest {
@@ -58,6 +59,7 @@ export interface ThesisFullTextRequest {
   style?: string
   references?: any[]
   style_example?: any
+  databases?: string[]
 }
 
 export interface ThesisRefineRequest {

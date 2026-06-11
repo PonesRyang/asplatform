@@ -32,6 +32,7 @@ class ThesisOutlineRequest(BaseModel):
     requirements: Optional[str] = None
     references: Optional[List[dict]] = None  # User-uploaded verified references
     style_example: Optional[dict] = None  # User-selected style example
+    databases: Optional[List[str]] = None
     token: Optional[str] = None
 
 
@@ -62,6 +63,7 @@ class ThesisFullTextRequest(BaseModel):
     style: Optional[str] = None
     references: Optional[List[dict]] = None
     style_example: Optional[dict] = None
+    databases: Optional[List[str]] = None
     token: Optional[str] = None
 
 

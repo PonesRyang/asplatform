@@ -1,5 +1,5 @@
 import api from './api'
-import type { DocumentItem, LitCompareRequest, GapAnalysisRequest } from '../types/literature'
+import type { DocumentItem, LitCompareRequest, GapAnalysisRequest, LiteratureDatabaseOptionsResponse } from '../types/literature'
 
 export async function searchLiterature(
   query: string,
@@ -14,6 +14,19 @@ export async function searchLiterature(
     results: response.data.results ?? response.data.citations ?? [],
     total: response.data.total ?? response.data.count ?? 0,
   }
+}
+
+export async function getLiteratureDatabaseOptions(
+  token?: string | null,
+  module?: 'grant' | 'writing' | 'literature',
+): Promise<LiteratureDatabaseOptionsResponse> {
+  const response = await api.get<LiteratureDatabaseOptionsResponse>('/api/literature/databases/options', {
+    params: {
+      ...(token ? { token } : {}),
+      ...(module ? { module } : {}),
+    },
+  })
+  return response.data
 }
 
 export async function extractLitFiles(files: File[], token?: string | null): Promise<DocumentItem[]> {

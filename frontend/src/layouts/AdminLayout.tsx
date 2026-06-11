@@ -11,6 +11,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DashboardOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
@@ -22,6 +23,7 @@ const UserGroupManagement = lazy(() => import('../pages/admin/UserGroupManagemen
 const UserManagement = lazy(() => import('../pages/admin/UserManagement'));
 const TokenManagement = lazy(() => import('../pages/admin/TokenManagement'));
 const GrantConfigManagement = lazy(() => import('../pages/admin/GrantConfigManagement'));
+const LiteratureDatabaseManagement = lazy(() => import('../pages/admin/LiteratureDatabaseManagement'));
 
 interface AdminMenuItem {
   key: string;
@@ -54,6 +56,12 @@ const adminMenuItems: AdminMenuItem[] = [
     icon: <SettingOutlined />,
     label: '申报配置',
     path: '/admin/grant-config',
+  },
+  {
+    key: 'literature-databases',
+    icon: <DatabaseOutlined />,
+    label: '文献库配置',
+    path: '/admin/literature-databases',
   },
 ];
 
@@ -234,6 +242,7 @@ export default function AdminLayout() {
               <Route path="users" element={<UserManagement />} />
               <Route path="tokens" element={<TokenManagement />} />
               <Route path="grant-config" element={<GrantConfigManagement />} />
+              <Route path="literature-databases" element={<LiteratureDatabaseManagement />} />
               <Route path="/" element={<Navigate to="groups" replace />} />
               <Route path="*" element={<Navigate to="groups" replace />} />
             </Routes>

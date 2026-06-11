@@ -9,6 +9,18 @@ class LiteratureSearchRequest(BaseModel):
     token: Optional[str] = None
 
 
+class LiteratureDatabaseOption(BaseModel):
+    key: str
+    name: str
+    description: Optional[str] = None
+    default_selected: bool = False
+
+
+class LiteratureDatabaseOptionsResponse(BaseModel):
+    databases: List[LiteratureDatabaseOption]
+    defaults: List[str]
+
+
 class LitCompareRequest(BaseModel):
     documents: List[dict]  # [{"name": str, "content": str}]
     token: Optional[str] = None

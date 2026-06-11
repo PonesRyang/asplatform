@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from schemas.literature import (
     LiteratureSearchRequest,
+    LiteratureDatabaseOption,
+    LiteratureDatabaseOptionsResponse,
     LitCompareRequest,
     GapAnalysisRequest,
 )
@@ -17,6 +19,11 @@ from database import get_db
 from models import AdminUser
 from api.dependencies import verify_service_access
 from services import ai_service, literature_service
+from services.literature_sources import (
+    default_literature_databases,
+    list_literature_database_configs,
+    normalize_literature_databases,
+)
 
 lit_router = APIRouter(prefix="/api/literature", tags=["literature"])
 lit_compare_router = APIRouter(prefix="/api/lit-compare", tags=["literature-compare"])
@@ -73,10 +80,11 @@ async def search_literature_api(request: LiteratureSearchRequest, db: Session = 
     """
     await require_literature_access(db, current_user, request.token)
 
+    databases = normalize_literature_databases(db, request.databases, module="literature")
     citations = await literature_service.search_literature(
         query=request.query,
         max_results=request.max_results,
-        databases=request.databases
+        databases=databases
     )
 
     return {
@@ -87,12 +95,16 @@ async def search_literature_api(request: LiteratureSearchRequest, db: Session = 
 
 
 @lit_router.get("/search")
-async def search_literature_get(query: str, max_results: int = 10, databases: str = "pubmed,europepmc,crossref", token: Optional[str] = None, db: Session = Depends(get_db)):
+async def search_literature_get(query: str, max_results: int = 10, databases: Optional[str] = None, token: Optional[str] = None, db: Session = Depends(get_db)):
     """
     GET endpoint for literature search (for easier browser testing).
     """
     await verify_service_access(db, token, "ai")
-    db_list = [d.strip() for d in databases.split(",")]
+    db_list = normalize_literature_databases(
+        db,
+        [d.strip() for d in databases.split(",")] if databases else None,
+        module="literature",
+    )
     citations = await literature_service.search_literature(
         query=query,
         max_results=max_results,
@@ -104,6 +116,33 @@ async def search_literature_get(query: str, max_results: int = 10, databases: st
         "count": len(citations),
         "citations": citations
     }
+
+
+@lit_router.get("/databases/options", response_model=LiteratureDatabaseOptionsResponse)
+async def get_literature_database_options(
+    module: Optional[str] = "literature",
+    token: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: Optional[AdminUser] = Depends(get_optional_admin),
+):
+    if current_user:
+        check_permission(current_user, "ai")
+    else:
+        await verify_service_access(db, token, "ai")
+
+    configs = list_literature_database_configs(db, module=module)
+    return LiteratureDatabaseOptionsResponse(
+        databases=[
+            LiteratureDatabaseOption(
+                key=item.key,
+                name=item.name,
+                description=item.description,
+                default_selected=item.default_selected,
+            )
+            for item in configs
+        ],
+        defaults=default_literature_databases(db, module=module),
+    )
 
 
 @enhance_router.post("/enhance-literature-upload")

@@ -112,3 +112,25 @@ export interface UpdateGrantConfigItemRequest {
   is_active?: boolean;
   source?: string;
 }
+
+export interface LiteratureDatabaseConfig {
+  id: number;
+  key: string;
+  name: string;
+  description?: string | null;
+  modules: string;
+  is_enabled: boolean;
+  default_selected: boolean;
+  sort_order: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface UpdateLiteratureDatabaseConfigRequest {
+  name?: string;
+  description?: string | null;
+  modules?: string;
+  is_enabled?: boolean;
+  default_selected?: boolean;
+  sort_order?: number;
+}

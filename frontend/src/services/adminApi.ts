@@ -14,6 +14,8 @@ import type {
   UpdateGrantConfigItemRequest,
   GrantConfigCategory,
   GrantConfigItem,
+  LiteratureDatabaseConfig,
+  UpdateLiteratureDatabaseConfigRequest,
 } from '../types/admin'
 
 // ── User Groups ──
@@ -115,4 +117,19 @@ export async function updateGrantConfigItem(id: number, data: UpdateGrantConfigI
 
 export async function deleteGrantConfigItem(id: number): Promise<void> {
   await api.delete(`/api/admin/grant-config/${id}`)
+}
+
+// ── Literature Database Config ──
+
+export async function listLiteratureDatabases(): Promise<LiteratureDatabaseConfig[]> {
+  const response = await api.get<LiteratureDatabaseConfig[]>('/api/admin/literature-databases')
+  return response.data
+}
+
+export async function updateLiteratureDatabase(
+  id: number,
+  data: UpdateLiteratureDatabaseConfigRequest,
+): Promise<LiteratureDatabaseConfig> {
+  const response = await api.put<LiteratureDatabaseConfig>(`/api/admin/literature-databases/${id}`, data)
+  return response.data
 }

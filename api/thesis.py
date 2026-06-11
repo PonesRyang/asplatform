@@ -37,6 +37,7 @@ from database import get_db
 from models import AdminUser, ThesisProject, ThesisStep
 from api.dependencies import verify_service_access, deduct_token_quota
 from services import ai_service, literature_service, ReferenceVerifier
+from services.literature_sources import normalize_literature_databases
 
 router = APIRouter(prefix="/api/ai/thesis", tags=["thesis"])
 
@@ -265,7 +266,8 @@ async def generate_outline(req: ThesisOutlineRequest, db: Session = Depends(get_
         user_ref_context += f"\n⚠️ 强制要求：以上 {len(user_refs)} 篇文献是用户指定的参考文献，必须全部在正文中通过文中引用格式（如 (Author et al., Year) 或 [数字]）进行引用，且必须全部出现在文末的参考文献列表中，一篇都不能遗漏。引用时应与正文论述自然结合，不可堆砌。\n"
 
     # --- Fetch Real Literature ---
-    real_citations = await literature_service.search_literature(project.topic, max_results=15)
+    selected_databases = normalize_literature_databases(db, req.databases, module="writing")
+    real_citations = await literature_service.search_literature(project.topic, max_results=15, databases=selected_databases)
     lit_context = ""
     if real_citations:
         lit_context = "以下是从真实学术数据库中检索到的相关文献（可直接引用）：\n"
@@ -567,10 +569,11 @@ async def generate_fulltext(req: ThesisFullTextRequest, db: Session = Depends(ge
         style_example_context += "请适当参照该范例的学术写作风格、段落组织方式和论证逻辑。注意：这不是要复制内容，而是学习其行文风格。\n"
 
     # --- Fetch Real Literature ---
-    real_citations = await literature_service.search_literature(project.topic, max_results=15)
+    selected_databases = normalize_literature_databases(db, req.databases, module="writing")
+    real_citations = await literature_service.search_literature(project.topic, max_results=15, databases=selected_databases)
     lit_context = ""
     if real_citations:
-        lit_context = "以下是从 PubMed 真实学术数据库中检索到的可引用文献（共15篇），请在正文中通过 (Author et al., Year) 的方式进行引用，并确保最后的参考文献列表包含这些文献：\n"
+        lit_context = "以下是从所选真实学术数据库中检索到的可引用文献，请在正文中通过 (Author et al., Year) 的方式进行引用，并确保最后的参考文献列表包含这些文献：\n"
         lit_context += "\n".join([f"- {cit.get('formatted', str(cit))}" for cit in real_citations])
 
     prompt = f"根据以下提纲，生成一篇完整的学术论著：\n提纲：\n{req.outline}\n\n要求：\n文风：{req.style or project.style}\n语言：{'中文' if project.language == 'zh' else '英文'}\n篇幅：{project.length}\n"
@@ -1022,7 +1025,13 @@ async def get_thesis_steps(project_id: int, token: Optional[str] = None, db: Ses
 
 
 @router.get("/{project_id}/references")
-async def get_project_references(project_id: int, token: Optional[str] = None, db: Session = Depends(get_db), current_user: Optional[AdminUser] = Depends(get_optional_admin)):
+async def get_project_references(
+    project_id: int,
+    token: Optional[str] = None,
+    databases: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: Optional[AdminUser] = Depends(get_optional_admin),
+):
     """Get all references for a project — both user-uploaded and auto-retrieved."""
     token_record = None
     if not current_user:
@@ -1049,7 +1058,12 @@ async def get_project_references(project_id: int, token: Optional[str] = None, d
             uploaded_refs = []
 
     # 2. Auto-retrieved literature
-    real_citations = await literature_service.search_literature(project.topic, max_results=15)
+    selected_databases = normalize_literature_databases(
+        db,
+        [item.strip() for item in databases.split(",")] if databases else None,
+        module="writing",
+    )
+    real_citations = await literature_service.search_literature(project.topic, max_results=15, databases=selected_databases)
 
     # 3. Style example
     style_example = None
@@ -1548,7 +1562,13 @@ async def export_thesis(project_id: int, token: Optional[str] = None, db: Sessio
 
 
 @router.post("/{project_id}/validate-references")
-async def validate_thesis_references(project_id: int, token: Optional[str] = None, db: Session = Depends(get_db), current_user: Optional[AdminUser] = Depends(get_optional_admin)):
+async def validate_thesis_references(
+    project_id: int,
+    token: Optional[str] = None,
+    databases: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: Optional[AdminUser] = Depends(get_optional_admin),
+):
     """
     Validate that references in the thesis text match the provided citation list.
 
@@ -1596,7 +1616,16 @@ async def validate_thesis_references(project_id: int, token: Optional[str] = Non
 
     # If no citations in metadata, search fresh
     if not citations:
-        citations = await literature_service.search_literature(project.topic, max_results=12)
+        selected_databases = normalize_literature_databases(
+            db,
+            [item.strip() for item in databases.split(",")] if databases else None,
+            module="writing",
+        )
+        citations = await literature_service.search_literature(
+            project.topic,
+            max_results=12,
+            databases=selected_databases,
+        )
 
     # Validate references
     validation_result = literature_service.validate_references(fulltext, citations)

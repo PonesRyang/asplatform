@@ -97,3 +97,40 @@ class GrantConfigItemResponse(GrantConfigItemBase):
         else:
             dt = dt.astimezone(timezone.utc)
         return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+class LiteratureDatabaseConfigBase(BaseModel):
+    key: str
+    name: str
+    description: Optional[str] = None
+    modules: str = "all"
+    is_enabled: bool = True
+    default_selected: bool = True
+    sort_order: int = 0
+
+
+class LiteratureDatabaseConfigUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    modules: Optional[str] = None
+    is_enabled: Optional[bool] = None
+    default_selected: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+class LiteratureDatabaseConfigResponse(LiteratureDatabaseConfigBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @field_serializer("created_at", "updated_at")
+    def serialize_dt(self, dt: datetime | None) -> str | None:
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")

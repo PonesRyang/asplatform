@@ -34,6 +34,7 @@ class GrantProjectUpdate(BaseModel):
 
 class GrantStepAction(BaseModel):
     token: Optional[str] = None
+    databases: Optional[List[str]] = None
 
 
 class GrantKeywordPatch(BaseModel):

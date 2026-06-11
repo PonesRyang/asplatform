@@ -16,6 +16,8 @@ from schemas.admin import (
     GrantConfigItemCreate,
     GrantConfigItemResponse,
     GrantConfigItemUpdate,
+    LiteratureDatabaseConfigResponse,
+    LiteratureDatabaseConfigUpdate,
 )
 from schemas.auth import (
     TokenCreate,
@@ -26,7 +28,8 @@ from schemas.auth import (
 from utils.auth import get_current_admin, check_permission
 from utils.security import get_password_hash
 from database import get_db
-from models import UserGroup, AdminUser, TokenRecord, GrantConfigItem
+from models import UserGroup, AdminUser, TokenRecord, GrantConfigItem, LiteratureDatabaseConfig
+from services.literature_sources import ensure_literature_database_seed, update_literature_database_config
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -283,6 +286,47 @@ def delete_grant_config_item(
     db.delete(db_item)
     db.commit()
     return {"message": "配置项已删除"}
+
+
+@router.get("/literature-databases", response_model=List[LiteratureDatabaseConfigResponse])
+def list_literature_databases(
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin),
+):
+    check_permission(current_user, "grant_config:read")
+    ensure_literature_database_seed(db)
+    return db.query(LiteratureDatabaseConfig).order_by(
+        LiteratureDatabaseConfig.sort_order.asc(),
+        LiteratureDatabaseConfig.id.asc(),
+    ).all()
+
+
+@router.put("/literature-databases/{item_id}", response_model=LiteratureDatabaseConfigResponse)
+def update_literature_database(
+    item_id: int,
+    payload: LiteratureDatabaseConfigUpdate,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin),
+):
+    check_permission(current_user, "grant_config:write")
+    db_item = db.query(LiteratureDatabaseConfig).filter(LiteratureDatabaseConfig.id == item_id).first()
+    if not db_item:
+        raise HTTPException(status_code=404, detail="文献库配置不存在")
+
+    updates = payload.dict(exclude_unset=True)
+    if "modules" in updates:
+        modules = {part.strip() for part in (updates["modules"] or "").split(",") if part.strip()}
+        allowed_modules = {"all", "grant", "writing", "literature"}
+        if not modules or not modules.issubset(allowed_modules):
+            raise HTTPException(status_code=400, detail="适用模块仅支持 all, grant, writing, literature")
+        updates["modules"] = ",".join(sorted(modules))
+    if "name" in updates and not (updates["name"] or "").strip():
+        raise HTTPException(status_code=400, detail="文献库名称不能为空")
+
+    db_item = update_literature_database_config(db_item, updates)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
 
 
 @router.post("/tokens", response_model=TokenResponse)

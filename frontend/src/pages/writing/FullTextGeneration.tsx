@@ -12,6 +12,8 @@ import { getProjectSteps, generateFulltext, saveFulltext, exportThesis } from '.
 import { processText } from '../../services/aiApi';
 import { useServiceToken } from '../../hooks/useServiceToken';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { getLiteratureDatabaseOptions } from '../../services/literatureApi';
+import type { LiteratureDatabaseOption } from '../../types/literature';
 
 const { Text, Title, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -54,6 +56,8 @@ const FullTextGeneration: FC<Props> = ({ project, outline, serviceToken, onBack 
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [literatureDatabases, setLiteratureDatabases] = useState<LiteratureDatabaseOption[]>([]);
+  const [selectedDatabases, setSelectedDatabases] = useState<string[]>([]);
 
   // AI tool state
   const [selectedTool, setSelectedTool] = useState<string>('polish');
@@ -67,6 +71,16 @@ const FullTextGeneration: FC<Props> = ({ project, outline, serviceToken, onBack 
   const [selectedText, setSelectedText] = useState('');
 
   const currentTool = AI_TOOLS.find(t => t.key === selectedTool)!;
+
+  useEffect(() => {
+    if (!serviceToken) return;
+    getLiteratureDatabaseOptions(serviceToken, 'writing')
+      .then(data => {
+        setLiteratureDatabases(data.databases);
+        setSelectedDatabases(data.defaults);
+      })
+      .catch(() => {});
+  }, [serviceToken]);
 
   // Load existing fulltext
   const loadSteps = useCallback(async () => {
@@ -112,8 +126,8 @@ const FullTextGeneration: FC<Props> = ({ project, outline, serviceToken, onBack 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const result = await generateFulltext({ project_id: project.id, token: serviceToken, outline, references: [] } as any);
-      setFullText(result.fulltext);
+      const result = await generateFulltext({ project_id: project.id, token: serviceToken, outline, references: [], databases: selectedDatabases } as any);
+      setFullText(result.full_text || result.fulltext);
       message.success('全文生成成功！');
     } catch (err: any) { message.error(err?.message || '生成失败'); }
     finally { setGenerating(false); }
@@ -269,8 +283,22 @@ const FullTextGeneration: FC<Props> = ({ project, outline, serviceToken, onBack 
             <Text strong>{project.title}</Text>
           </Space>
           <Space>
+            <Select
+              mode="multiple"
+              allowClear
+              size="small"
+              value={selectedDatabases}
+              onChange={setSelectedDatabases}
+              options={literatureDatabases.map(item => ({
+                label: item.name,
+                value: item.key,
+                title: item.description || item.name,
+              }))}
+              placeholder="选择文献库"
+              style={{ minWidth: 260 }}
+            />
             {!fullText && !generating && (
-              <Button type="primary" icon={<BulbOutlined />} onClick={handleGenerate} loading={generating}>生成全文</Button>
+              <Button type="primary" icon={<BulbOutlined />} onClick={handleGenerate} loading={generating} disabled={selectedDatabases.length === 0}>生成全文</Button>
             )}
             {fullText && (
               <>

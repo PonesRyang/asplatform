@@ -20,3 +20,15 @@ export interface GapAnalysisRequest {
   research_area: string
   instructions?: string
 }
+
+export interface LiteratureDatabaseOption {
+  key: string
+  name: string
+  description?: string | null
+  default_selected: boolean
+}
+
+export interface LiteratureDatabaseOptionsResponse {
+  databases: LiteratureDatabaseOption[]
+  defaults: string[]
+}

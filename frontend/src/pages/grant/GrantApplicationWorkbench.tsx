@@ -49,6 +49,8 @@ import {
 } from '../../services/grantApi';
 import type { GrantProjectSummary } from '../../services/grantApi';
 import { downloadBlob } from '../../utils/download';
+import { getLiteratureDatabaseOptions } from '../../services/literatureApi';
+import type { LiteratureDatabaseOption } from '../../types/literature';
 
 const { Text, Title, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -422,7 +424,27 @@ function InputPage({
   );
 }
 
-function KeywordsPage({ project, onPrev, onGenerateKeywords, onSearchReferences, onNext, loading }: { project: GrantProject; onPrev: () => void; onGenerateKeywords: () => void; onSearchReferences: () => void; onNext: () => void; loading: boolean }) {
+function KeywordsPage({
+  project,
+  literatureDatabases,
+  selectedDatabases,
+  onSelectedDatabasesChange,
+  onPrev,
+  onGenerateKeywords,
+  onSearchReferences,
+  onNext,
+  loading,
+}: {
+  project: GrantProject;
+  literatureDatabases: LiteratureDatabaseOption[];
+  selectedDatabases: string[];
+  onSelectedDatabasesChange: (value: string[]) => void;
+  onPrev: () => void;
+  onGenerateKeywords: () => void;
+  onSearchReferences: () => void;
+  onNext: () => void;
+  loading: boolean;
+}) {
   const selectedShould = project.keywords.should.filter(keyword => keyword.selected);
   const expression = `(${project.keywords.must.map(keyword => keyword.text).join(' AND ') || '等待生成'}) AND (${selectedShould.map(keyword => keyword.text).join(' OR ') || '等待生成'})`;
   const hasKeywords = project.keywords.must.length > 0 || project.keywords.should.length > 0 || project.keywords.groups.length > 0;
@@ -485,8 +507,24 @@ function KeywordsPage({ project, onPrev, onGenerateKeywords, onSearchReferences,
 
       <SectionCard
         title="文献检索预览"
-        extra={<Button size="small" loading={loading} disabled={!hasKeywords} onClick={onSearchReferences}>{hasReferences ? '重新检索文献' : '检索文献'}</Button>}
+        extra={<Button size="small" loading={loading} disabled={!hasKeywords || selectedDatabases.length === 0} onClick={onSearchReferences}>{hasReferences ? '重新检索文献' : '检索文献'}</Button>}
       >
+        <Space direction="vertical" style={{ width: '100%', marginBottom: 12 }}>
+          <Text strong>检索文献库</Text>
+          <Select
+            mode="multiple"
+            allowClear
+            value={selectedDatabases}
+            onChange={onSelectedDatabasesChange}
+            options={literatureDatabases.map(item => ({
+              label: item.name,
+              value: item.key,
+              title: item.description || item.name,
+            }))}
+            placeholder="请选择要检索的文献库"
+            style={{ width: '100%' }}
+          />
+        </Space>
         {!hasReferences && (
           <Alert
             type="info"
@@ -523,7 +561,7 @@ function KeywordsPage({ project, onPrev, onGenerateKeywords, onSearchReferences,
       <Space>
         <Button icon={<ArrowLeftOutlined />} onClick={onPrev}>上一步</Button>
         <Button loading={loading} onClick={onGenerateKeywords}>AI 生成关键词</Button>
-        <Button loading={loading} disabled={!hasKeywords} onClick={onSearchReferences}>{hasReferences ? '重新检索文献' : '检索文献'}</Button>
+        <Button loading={loading} disabled={!hasKeywords || selectedDatabases.length === 0} onClick={onSearchReferences}>{hasReferences ? '重新检索文献' : '检索文献'}</Button>
         <Button type="primary" icon={<ArrowRightOutlined />} loading={loading} disabled={!hasKeywords || !hasReferences} onClick={onNext}>生成创新选题</Button>
       </Space>
     </SectionCard>
@@ -848,6 +886,8 @@ export default function GrantApplicationWorkbench() {
   const [loading, setLoading] = useState(false);
   const [configOptions, setConfigOptions] = useState<GrantConfigOptions>(emptyConfigOptions);
   const [configLoading, setConfigLoading] = useState(false);
+  const [literatureDatabases, setLiteratureDatabases] = useState<LiteratureDatabaseOption[]>([]);
+  const [selectedLiteratureDatabases, setSelectedLiteratureDatabases] = useState<string[]>([]);
   const configContextKeyRef = useRef<string | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
 
@@ -902,8 +942,11 @@ export default function GrantApplicationWorkbench() {
           listGrantProjects(serviceToken),
           getGrantConfigOptions(serviceToken),
         ]);
+        const literatureOptions = await getLiteratureDatabaseOptions(serviceToken, 'grant');
         setProjectSummaries(projects);
         setConfigOptions(options);
+        setLiteratureDatabases(literatureOptions.databases);
+        setSelectedLiteratureDatabases(literatureOptions.defaults);
         configContextKeyRef.current = makeConfigContextKey();
 
         if (routeProjectId) {
@@ -1053,7 +1096,7 @@ export default function GrantApplicationWorkbench() {
     }
     setLoading(true);
     try {
-      const data = await searchGrantReferences(project.id, serviceToken);
+      const data = await searchGrantReferences(project.id, serviceToken, selectedLiteratureDatabases);
       setProject(data);
       message.success(data.references.length > 0 ? `已检索到 ${data.references.length} 条文献` : '未检索到文献，请调整关键词后重试');
     } catch (error: any) {
@@ -1163,7 +1206,19 @@ export default function GrantApplicationWorkbench() {
       case 'input':
         return <InputPage project={project} configOptions={configOptions} configLoading={configLoading} onConfigContextChange={refreshConfigOptions} loading={loading} onNext={handleInputNext} />;
       case 'keywords':
-        return <KeywordsPage project={project} loading={loading} onPrev={prev} onGenerateKeywords={handleGenerateKeywords} onSearchReferences={handleSearchReferences} onNext={handleKeywordsNext} />;
+        return (
+          <KeywordsPage
+            project={project}
+            literatureDatabases={literatureDatabases}
+            selectedDatabases={selectedLiteratureDatabases}
+            onSelectedDatabasesChange={setSelectedLiteratureDatabases}
+            loading={loading}
+            onPrev={prev}
+            onGenerateKeywords={handleGenerateKeywords}
+            onSearchReferences={handleSearchReferences}
+            onNext={handleKeywordsNext}
+          />
+        );
       case 'topics':
         return <TopicsPage project={project} loading={loading} onPrev={prev} onNext={handleTopicsNext} onSelectTopic={handleSelectTopic} />;
       case 'report':
@@ -1173,7 +1228,7 @@ export default function GrantApplicationWorkbench() {
       default:
         return <InputPage project={project} configOptions={configOptions} configLoading={configLoading} onConfigContextChange={refreshConfigOptions} loading={loading} onNext={next} />;
     }
-  }, [currentStep, currentIndex, project, configOptions, configLoading, refreshConfigOptions, loading, reportVersions, selectedReportVersionId, selectedProposalSectionKey]);
+  }, [currentStep, currentIndex, project, configOptions, configLoading, refreshConfigOptions, loading, reportVersions, selectedReportVersionId, selectedProposalSectionKey, literatureDatabases, selectedLiteratureDatabases]);
 
   if (!routeProjectId && !isNewProjectRoute) {
     return (

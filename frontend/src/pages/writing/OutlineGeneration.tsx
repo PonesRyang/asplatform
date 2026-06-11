@@ -14,6 +14,7 @@ import {
   Upload,
   Empty,
   Spin,
+  Select,
 } from 'antd';
 import {
   FileTextOutlined,
@@ -35,6 +36,8 @@ import {
 import { THESIS_TYPES, LENGTH_OPTIONS, LANGUAGES, DISCIPLINES } from '../../config/constants';
 import ReferenceUpload, { type VerifiedReference } from './ReferenceUpload';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { getLiteratureDatabaseOptions } from '../../services/literatureApi';
+import type { LiteratureDatabaseOption } from '../../types/literature';
 
 const { Text, Paragraph } = Typography;
 
@@ -169,6 +172,8 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
   const [referencesUploaded, setReferencesUploaded] = useState(false);
   const [verifiedRefs, setVerifiedRefs] = useState<VerifiedReference[]>([]);
   const [styleFile, setStyleFile] = useState<File | null>(null);
+  const [literatureDatabases, setLiteratureDatabases] = useState<LiteratureDatabaseOption[]>([]);
+  const [selectedDatabases, setSelectedDatabases] = useState<string[]>([]);
 
   // -------------------------------------------------------------------------
   // Load project steps
@@ -197,6 +202,16 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
     loadSteps();
   }, [loadSteps]);
 
+  useEffect(() => {
+    if (!serviceToken) return;
+    getLiteratureDatabaseOptions(serviceToken, 'writing')
+      .then(data => {
+        setLiteratureDatabases(data.databases);
+        setSelectedDatabases(data.defaults);
+      })
+      .catch(() => {});
+  }, [serviceToken]);
+
   // -------------------------------------------------------------------------
   // Generate outline
   // -------------------------------------------------------------------------
@@ -206,6 +221,7 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
       const request: ThesisOutlineRequest = {
         project_id: project.id,
         token: serviceToken,
+        databases: selectedDatabases,
       };
 
       const result = await generateOutline(request);
@@ -433,7 +449,13 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
       />
 
       {/* ---- References List (uploaded + retrieved) ---- */}
-      <ReferencesListCard projectId={project.id} serviceToken={serviceToken} />
+      <ReferencesListCard
+        projectId={project.id}
+        serviceToken={serviceToken}
+        literatureDatabases={literatureDatabases}
+        selectedDatabases={selectedDatabases}
+        onSelectedDatabasesChange={setSelectedDatabases}
+      />
 
       {/* ---- Style Reference Upload ---- */}
       <Card
@@ -576,7 +598,19 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
 // =========================================================================
 import { List, Badge, Tooltip } from 'antd';
 import { LinkOutlined, UploadOutlined as UplIcon, SearchOutlined as SearchIcon } from '@ant-design/icons';
-function ReferencesListCard({ projectId, serviceToken }: { projectId: number; serviceToken: string }) {
+function ReferencesListCard({
+  projectId,
+  serviceToken,
+  literatureDatabases,
+  selectedDatabases,
+  onSelectedDatabasesChange,
+}: {
+  projectId: number;
+  serviceToken: string;
+  literatureDatabases: LiteratureDatabaseOption[];
+  selectedDatabases: string[];
+  onSelectedDatabasesChange: (value: string[]) => void;
+}) {
   const [refs, setRefs] = useState<{ uploaded: any[]; retrieved: any[] }>({ uploaded: [], retrieved: [] });
   const [loading, setLoading] = useState(true);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -584,28 +618,52 @@ function ReferencesListCard({ projectId, serviceToken }: { projectId: number; se
   useEffect(() => {
     if (!projectId) return;
     setLoading(true);
-    fetch(`/api/ai/thesis/${projectId}/references?token=${encodeURIComponent(serviceToken)}`)
+    const params = new URLSearchParams({ token: serviceToken });
+    if (selectedDatabases.length > 0) params.set('databases', selectedDatabases.join(','));
+    fetch(`/api/ai/thesis/${projectId}/references?${params.toString()}`)
       .then(r => r.json())
       .then(d => { setRefs({ uploaded: d.uploaded || [], retrieved: d.retrieved || [] }); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [projectId, serviceToken]);
+  }, [projectId, serviceToken, selectedDatabases]);
 
   const allRefs = [
     ...refs.uploaded.map((r: any, i: number) => ({ ...r, _source: 'uploaded', _key: `up-${i}` })),
     ...refs.retrieved.map((r: any, i: number) => ({ ...r, _source: 'retrieved', _key: `ret-${i}` })),
   ];
 
-  if (loading) return <Card size="small" title="参考文献" style={{ marginBottom: 16 }}><Spin size="small" /></Card>;
-  if (allRefs.length === 0) return null;
+  const title = (
+    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      <Space>参考文献 <Tag>{allRefs.length} 篇</Tag></Space>
+      <Select
+        mode="multiple"
+        allowClear
+        size="small"
+        value={selectedDatabases}
+        onChange={onSelectedDatabasesChange}
+        options={literatureDatabases.map(item => ({
+          label: item.name,
+          value: item.key,
+          title: item.description || item.name,
+        }))}
+        placeholder="选择检索文献库"
+        style={{ minWidth: 280 }}
+      />
+    </Space>
+  );
+
+  if (loading) return <Card size="small" title={title} style={{ marginBottom: 16 }}><Spin size="small" /></Card>;
 
   return (
     <Card
       size="small"
-      title={<Space>📚 参考文献 <Tag>{allRefs.length} 篇</Tag></Space>}
+      title={title}
       style={{ marginBottom: 16 }}
       styles={{ body: { padding: 0 } }}
     >
+      {allRefs.length === 0 && (
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无参考文献" style={{ padding: 16 }} />
+      )}
       <List
         size="small"
         dataSource={allRefs}
