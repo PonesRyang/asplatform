@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -217,16 +217,20 @@ function InputPage({
   project,
   configOptions,
   configLoading,
+  onConfigContextChange,
   onNext,
   loading,
 }: {
   project: GrantProject;
   configOptions: GrantConfigOptions;
   configLoading: boolean;
+  onConfigContextChange: (context: { researchAreaPath?: string[]; diseasePath?: string[] }) => void;
   onNext: (input: GrantInputState) => void;
   loading: boolean;
 }) {
   const [form] = Form.useForm<GrantInputState>();
+  const watchedResearchAreaPath = Form.useWatch('researchAreaPath', form);
+  const watchedDiseasePath = Form.useWatch('diseasePath', form);
   const formValues = {
     fundType: project.input.fundType,
     researchAreaPath: project.input.researchAreaPath,
@@ -241,6 +245,23 @@ function InputPage({
     form.setFieldsValue(formValues);
   }, [form, project.id, project.updatedAt]);
 
+  useEffect(() => {
+    onConfigContextChange({
+      researchAreaPath: watchedResearchAreaPath || [],
+      diseasePath: watchedDiseasePath || [],
+    });
+  }, [onConfigContextChange, JSON.stringify(watchedDiseasePath || []), JSON.stringify(watchedResearchAreaPath || [])]);
+
+  const handleValuesChange = (changedValues: Partial<GrantInputState>, _allValues: GrantInputState) => {
+    if (changedValues.researchAreaPath) {
+      form.setFieldsValue({ diseasePath: [], phenotype: '', variableType: '' });
+      return;
+    }
+    if (changedValues.diseasePath) {
+      form.setFieldsValue({ phenotype: '', variableType: '' });
+    }
+  };
+
   return (
     <SectionCard
       title="第 1 页：输入选题信息"
@@ -252,7 +273,7 @@ function InputPage({
         message="高级选项不是必填，但会显著影响后续关键词和候选选题的聚焦度。"
         style={{ marginBottom: 16 }}
       />
-      <Form form={form} layout="vertical" initialValues={formValues} onFinish={onNext}>
+      <Form form={form} layout="vertical" initialValues={formValues} onFinish={onNext} onValuesChange={handleValuesChange}>
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item label="课题类型" name="fundType" rules={[{ required: true }]}>
@@ -284,6 +305,8 @@ function InputPage({
                 options={configOptions.diseases}
                 showSearch
                 changeOnSelect
+                disabled={!watchedResearchAreaPath?.length}
+                placeholder={watchedResearchAreaPath?.length ? undefined : '请先选择医学研究领域'}
               />
             </Form.Item>
           </Col>
@@ -291,10 +314,12 @@ function InputPage({
             <Form.Item label="表型 / 科学问题" name="phenotype">
               <Select
                 allowClear
+                disabled={!watchedDiseasePath?.length}
                 loading={configLoading}
                 showSearch
                 optionFilterProp="label"
                 options={configOptions.phenotypes}
+                placeholder={watchedDiseasePath?.length ? undefined : '请先选择疾病'}
               />
             </Form.Item>
           </Col>
@@ -302,10 +327,12 @@ function InputPage({
             <Form.Item label="主变量类型" name="variableType">
               <Select
                 allowClear
+                disabled={!watchedDiseasePath?.length}
                 loading={configLoading}
                 showSearch
                 optionFilterProp="label"
                 options={configOptions.variableTypes}
+                placeholder={watchedDiseasePath?.length ? undefined : '请先选择疾病'}
               />
             </Form.Item>
           </Col>
@@ -749,6 +776,7 @@ export default function GrantApplicationWorkbench() {
   const [loading, setLoading] = useState(false);
   const [configOptions, setConfigOptions] = useState<GrantConfigOptions>(emptyConfigOptions);
   const [configLoading, setConfigLoading] = useState(false);
+  const configContextKeyRef = useRef<string | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
 
   const routeProjectId = useMemo(() => {
@@ -770,6 +798,27 @@ export default function GrantApplicationWorkbench() {
     navigate('/frontend/grant');
   };
 
+  const makeConfigContextKey = (context?: { researchAreaPath?: string[]; diseasePath?: string[] }) => JSON.stringify({
+    researchAreaPath: context?.researchAreaPath || [],
+    diseasePath: context?.diseasePath || [],
+  });
+
+  const refreshConfigOptions = useCallback(async (context?: { researchAreaPath?: string[]; diseasePath?: string[] }) => {
+    if (!serviceToken) return;
+    const contextKey = makeConfigContextKey(context);
+    if (configContextKeyRef.current === contextKey) return;
+    configContextKeyRef.current = contextKey;
+    setConfigLoading(true);
+    try {
+      const options = await getGrantConfigOptions(serviceToken, context);
+      setConfigOptions(options);
+    } catch (error: any) {
+      message.error(error?.response?.data?.detail || error?.message || '加载申报配置失败');
+    } finally {
+      setConfigLoading(false);
+    }
+  }, [serviceToken]);
+
   useEffect(() => {
     if (!serviceToken || bootstrapped) return;
 
@@ -783,6 +832,7 @@ export default function GrantApplicationWorkbench() {
         ]);
         setProjectSummaries(projects);
         setConfigOptions(options);
+        configContextKeyRef.current = makeConfigContextKey();
 
         if (routeProjectId) {
           const data = await getGrantProject(routeProjectId, serviceToken);
@@ -1039,7 +1089,7 @@ export default function GrantApplicationWorkbench() {
 
     switch (currentStep) {
       case 'input':
-        return <InputPage project={project} configOptions={configOptions} configLoading={configLoading} loading={loading} onNext={handleInputNext} />;
+        return <InputPage project={project} configOptions={configOptions} configLoading={configLoading} onConfigContextChange={refreshConfigOptions} loading={loading} onNext={handleInputNext} />;
       case 'keywords':
         return <KeywordsPage project={project} loading={loading} onPrev={prev} onGenerateKeywords={handleGenerateKeywords} onSearchReferences={handleSearchReferences} onNext={handleKeywordsNext} />;
       case 'topics':
@@ -1049,9 +1099,9 @@ export default function GrantApplicationWorkbench() {
       case 'proposal':
         return <ProposalPage project={project} selectedSectionKey={selectedProposalSectionKey} onSelectSection={setSelectedProposalSectionKey} loading={loading} onPrev={prev} onExport={handleExportWord} />;
       default:
-        return <InputPage project={project} configOptions={configOptions} configLoading={configLoading} loading={loading} onNext={next} />;
+        return <InputPage project={project} configOptions={configOptions} configLoading={configLoading} onConfigContextChange={refreshConfigOptions} loading={loading} onNext={next} />;
     }
-  }, [currentStep, currentIndex, project, configOptions, configLoading, loading, reportVersions, selectedReportVersionId, selectedProposalSectionKey]);
+  }, [currentStep, currentIndex, project, configOptions, configLoading, refreshConfigOptions, loading, reportVersions, selectedReportVersionId, selectedProposalSectionKey]);
 
   if (!routeProjectId && !isNewProjectRoute) {
     return (
@@ -1069,7 +1119,7 @@ export default function GrantApplicationWorkbench() {
       <div style={{ background: '#f5f7fb', margin: -24, padding: 24, minHeight: 'calc(100vh - 112px)' }}>
         <Row gutter={[16, 16]}>
           <Col xs={24} xl={18}>
-            <InputPage project={project} configOptions={configOptions} configLoading={configLoading} loading={loading} onNext={handleInputNext} />
+            <InputPage project={project} configOptions={configOptions} configLoading={configLoading} onConfigContextChange={refreshConfigOptions} loading={loading} onNext={handleInputNext} />
           </Col>
           <Col xs={24} xl={6}>
             <SidePanel project={project} currentStep="input" />

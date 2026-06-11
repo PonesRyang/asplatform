@@ -58,6 +58,8 @@ class GrantConfigItemBase(BaseModel):
     label: str
     value: Optional[str] = None
     parent_id: Optional[int] = None
+    depends_on_category: Optional[str] = None
+    depends_on_value: Optional[str] = None
     sort_order: int = 0
     is_active: bool = True
     source: Optional[str] = None
@@ -71,6 +73,8 @@ class GrantConfigItemUpdate(BaseModel):
     label: Optional[str] = None
     value: Optional[str] = None
     parent_id: Optional[int] = None
+    depends_on_category: Optional[str] = None
+    depends_on_value: Optional[str] = None
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
     source: Optional[str] = None

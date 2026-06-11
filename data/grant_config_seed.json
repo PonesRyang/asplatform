@@ -10164,889 +10164,1397 @@
         "肿瘤",
         "白血病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "膀胱癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "鼻咽癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "胆管癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "多发性骨髓瘤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "肺癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "肺腺癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "非小细胞肺癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "肝癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "肝细胞癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "肝内胆管癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "宫颈癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "骨肉瘤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "喉癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "黑色素瘤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "急性髓系白血病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "甲状腺癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "胶质瘤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "胶质母细胞瘤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "结肠癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "结直肠癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "急性淋巴细胞白血病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "口腔癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "口腔鳞状细胞癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "淋巴瘤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "卵巢癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "弥漫大B细胞淋巴瘤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "慢性淋巴细胞白血病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "脑膜瘤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "前列腺癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "乳腺癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "三阴性乳腺癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "神经母细胞瘤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "肾癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "肾细胞癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "食管癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "食管鳞状细胞癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "髓母细胞瘤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "头颈部鳞状细胞癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "胃癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "小细胞肺癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "胰腺癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "胰腺导管腺癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "主动脉瘤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "肿瘤",
         "子宫内膜癌"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "阿尔茨海默病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "瘢痕"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "鼻炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肠易激"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "癫痫"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "动脉粥样硬化"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "多发性硬化"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "代谢综合征"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "耳聋"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "额颞叶痴呆"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "非酒精性脂肪肝"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肥胖"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肺动脉高压"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肺纤维化"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肺炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肝衰竭"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肝纤维化"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肝炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肝硬化"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "干燥综合征"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "高血压"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "骨关节炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "骨髓纤维化"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "骨质疏松"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "骨髓增生异常综合征"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "冠心病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "呼吸衰竭"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肌萎缩侧索硬化症"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "急性肾损伤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "急性胰腺炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "脊髓损伤"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "结肠炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "结核病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "焦虑症"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "克罗恩病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "狼疮性肾炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "类风湿关节炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "慢性肾病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "脑膜炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "脑炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "脑卒中"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "年龄相关性黄斑变性"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "脓毒症"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "帕金森"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "疱疹"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "贫血"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "青光眼"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "精神分裂症"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "妊娠期糖尿病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "认知障碍"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "呼吸道合胞病毒感染"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肾衰竭"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肾炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "肾纤维化"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "神经退行性疾病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "神经发育障碍"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "糖尿病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "糖尿病肾病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "糖尿病视网膜病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "特应性皮炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "系统性红斑狼疮"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "哮喘"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "心肌病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "心肌梗死"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "心脏纤维化"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "心肌炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "心力衰竭"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "心房颤动"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "心脏病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "心脏肥大"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "休克"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "牙周炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "炎症性肠病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "胰腺炎"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "银屑病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "抑郁症"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "脂肪肝"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "重症肌无力"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "子痫"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "子痫前期"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "自闭症谱系障碍"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     },
     {
       "path": [
         "非肿瘤",
         "自身免疫性疾病"
       ],
-      "source": "疾病列表.xlsx"
+      "source": "疾病列表.xlsx",
+      "dependsOn": {
+        "category": "research_area",
+        "value": "医学科学部"
+      }
     }
   ],
   "variable_type": [
@@ -11054,199 +11562,331 @@
       "path": [
         "多肽"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "miRNA"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "lncRNA"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "circRNA"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "DNA甲基转移酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "E3泛素连接酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "m6A甲基转移酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "m6A去甲基化酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "RNA结合蛋白"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "核酸酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "激酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "激素"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "甲基转移酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "精氨酸甲基转移酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "磷酸酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "磷脂酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "膜受体"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "去泛素化酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "去甲基化酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "去琥珀酰化酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "去乙酰化酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "神经递质"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "细胞骨架蛋白"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "细胞因子"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "小GTP酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "乙酰转移酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "脂质转运蛋白"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "转录因子"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "棕榈酰转移酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "组蛋白甲基转移酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "组蛋白去甲基化酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "组蛋白去乙酰化酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "组蛋白乙酰转移酶"
       ],
-      "source": "主变量类型.xlsx"
+      "source": "主变量类型.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     }
   ],
   "phenotype": [
@@ -11254,367 +11894,611 @@
       "path": [
         "DNA损伤修复"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "基质降解"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "ECM重塑"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "EMT"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "EndMT"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "胞葬"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "肠道屏障"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "成骨分化"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "成纤维细胞活化"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "成纤维细胞向肌成纤维细胞转化"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "凋亡"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "代谢重编程"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "放疗抵抗"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "钙流"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "肝星状细胞活化"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "干细胞分化"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "骨代谢异常"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "骨吸收"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "骨修复"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "化疗耐药"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "焦亡"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "巨噬细胞"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "巨噬细胞极化"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "巨噬细胞泡沫化"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "巨噬细胞代谢重编程"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "胶原沉积"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "免疫浸润"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "免疫抑制"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "耐药"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "内质网应激"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "内质网自噬"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "嘌呤代谢"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "迁移"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "侵袭"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "衰老"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "T细胞耗竭"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "糖酵解"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "糖代谢"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "铁死亡"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "铜死亡"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "突触重塑"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "纤维化"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "细胞活力"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "细胞周期"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "线粒体融合分裂"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "线粒体应激"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "线粒体自噬"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "线粒体功能异常"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "小胶质细胞极化"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "星形胶质细胞活化"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "血管新生"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "炎症"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "胰岛素抵抗"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "氧化应激"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "增殖"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "脂质代谢"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "脂肪变性"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "脂质堆积"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "中性粒细胞外陷阱"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "自噬"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     },
     {
       "path": [
         "脂质过氧化"
       ],
-      "source": "表型问题.xlsx"
+      "source": "表型问题.xlsx",
+      "dependsOn": {
+        "category": "disease",
+        "value": "*"
+      }
     }
   ]
 }

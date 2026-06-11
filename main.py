@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 import os
+from sqlalchemy import inspect, text
 
 # Configuration and database
 from config_loader import get_config_manager, start_hot_reload, get
@@ -43,6 +44,25 @@ HTML_DIR = os.path.join(
 
 # Create all tables
 Base.metadata.create_all(bind=engine)
+
+
+def _ensure_incremental_schema():
+    inspector = inspect(engine)
+    if not inspector.has_table("grant_config_items"):
+        return
+    columns = {column["name"] for column in inspector.get_columns("grant_config_items")}
+    statements = []
+    if "depends_on_category" not in columns:
+        statements.append("ALTER TABLE grant_config_items ADD COLUMN depends_on_category VARCHAR(64)")
+    if "depends_on_value" not in columns:
+        statements.append("ALTER TABLE grant_config_items ADD COLUMN depends_on_value VARCHAR(255)")
+    if statements:
+        with engine.begin() as conn:
+            for statement in statements:
+                conn.execute(text(statement))
+
+
+_ensure_incremental_schema()
 
 
 # =============================================================================

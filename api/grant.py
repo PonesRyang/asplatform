@@ -102,20 +102,65 @@ def _project_to_summary(project: GrantProject) -> GrantProjectSummary:
     )
 
 
-def _flat_config_options(db: Session, category: str) -> List[GrantConfigOption]:
+def _path_from_query(value: Optional[str]) -> List[str]:
+    if not value:
+        return []
+    return [part.strip() for part in value.split("/") if part.strip()]
+
+
+def _matches_dependency(
+    item: GrantConfigItem,
+    dependency_category: Optional[str],
+    dependency_values: List[str],
+    require_dependency: bool,
+) -> bool:
+    if not require_dependency and not item.depends_on_category:
+        return True
+    if not dependency_category or not dependency_values:
+        return False
+    if item.depends_on_category != dependency_category:
+        return False
+    if item.depends_on_value == "*":
+        return True
+    return bool(item.depends_on_value and item.depends_on_value in set(dependency_values))
+
+
+def _flat_config_options(
+    db: Session,
+    category: str,
+    dependency_category: Optional[str] = None,
+    dependency_values: Optional[List[str]] = None,
+    require_dependency: bool = False,
+) -> List[GrantConfigOption]:
     items = db.query(GrantConfigItem).filter(
         GrantConfigItem.category == category,
         GrantConfigItem.is_active == True,
         GrantConfigItem.parent_id.is_(None),
     ).order_by(GrantConfigItem.sort_order.asc(), GrantConfigItem.id.asc()).all()
-    return [GrantConfigOption(label=item.label, value=item.value or item.label) for item in items]
+    values = dependency_values or []
+    return [
+        GrantConfigOption(label=item.label, value=item.value or item.label)
+        for item in items
+        if _matches_dependency(item, dependency_category, values, require_dependency)
+    ]
 
 
-def _tree_config_options(db: Session, category: str) -> List[GrantConfigTreeNode]:
+def _tree_config_options(
+    db: Session,
+    category: str,
+    dependency_category: Optional[str] = None,
+    dependency_values: Optional[List[str]] = None,
+    require_dependency: bool = False,
+) -> List[GrantConfigTreeNode]:
     items = db.query(GrantConfigItem).filter(
         GrantConfigItem.category == category,
         GrantConfigItem.is_active == True,
     ).order_by(GrantConfigItem.sort_order.asc(), GrantConfigItem.id.asc()).all()
+    values = dependency_values or []
+    items = [
+        item for item in items
+        if _matches_dependency(item, dependency_category, values, require_dependency)
+    ]
 
     node_by_id: Dict[int, GrantConfigTreeNode] = {
         item.id: GrantConfigTreeNode(label=item.label, value=item.value or item.label)
@@ -362,6 +407,8 @@ def _build_proposal_docx(project: GrantProject) -> io.BytesIO:
 @router.get("/config/options", response_model=GrantConfigOptionsResponse)
 async def get_grant_config_options(
     token: Optional[str] = None,
+    research_area_path: Optional[str] = None,
+    disease_path: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: Optional[AdminUser] = Depends(get_optional_admin),
 ):
@@ -370,12 +417,33 @@ async def get_grant_config_options(
     else:
         await verify_service_access(db, token, "ai")
 
+    research_path = _path_from_query(research_area_path)
+    disease_path_values = _path_from_query(disease_path)
+
     return GrantConfigOptionsResponse(
         fundTypes=_flat_config_options(db, "fund_type"),
         researchAreas=_tree_config_options(db, "research_area"),
-        diseases=_tree_config_options(db, "disease"),
-        variableTypes=_flat_config_options(db, "variable_type"),
-        phenotypes=_flat_config_options(db, "phenotype"),
+        diseases=_tree_config_options(
+            db,
+            "disease",
+            dependency_category="research_area",
+            dependency_values=research_path,
+            require_dependency=True,
+        ),
+        variableTypes=_flat_config_options(
+            db,
+            "variable_type",
+            dependency_category="disease",
+            dependency_values=disease_path_values,
+            require_dependency=True,
+        ),
+        phenotypes=_flat_config_options(
+            db,
+            "phenotype",
+            dependency_category="disease",
+            dependency_values=disease_path_values,
+            require_dependency=True,
+        ),
     )
 
 

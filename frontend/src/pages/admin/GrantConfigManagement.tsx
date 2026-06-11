@@ -43,6 +43,8 @@ interface ConfigFormValues {
   label: string;
   value?: string;
   parent_id?: number | null;
+  depends_on_category?: GrantConfigCategory | null;
+  depends_on_value?: string | null;
   sort_order?: number;
   is_active?: boolean;
   source?: string;
@@ -88,7 +90,13 @@ export default function GrantConfigManagement() {
   const openCreate = () => {
     setEditingItem(null);
     form.resetFields();
-    form.setFieldsValue({ is_active: true, sort_order: items.length + 1, parent_id: null });
+    form.setFieldsValue({
+      is_active: true,
+      sort_order: items.length + 1,
+      parent_id: null,
+      depends_on_category: activeCategory === 'disease' ? 'research_area' : activeCategory === 'variable_type' || activeCategory === 'phenotype' ? 'disease' : null,
+      depends_on_value: activeCategory === 'variable_type' || activeCategory === 'phenotype' ? '*' : undefined,
+    });
     setModalOpen(true);
   };
 
@@ -98,6 +106,8 @@ export default function GrantConfigManagement() {
       label: item.label,
       value: item.value,
       parent_id: item.parent_id ?? null,
+      depends_on_category: item.depends_on_category ?? null,
+      depends_on_value: item.depends_on_value || '',
       sort_order: item.sort_order,
       is_active: item.is_active,
       source: item.source || '',
@@ -118,6 +128,8 @@ export default function GrantConfigManagement() {
           label: values.label,
           value: values.value,
           parent_id: values.parent_id ?? null,
+          depends_on_category: values.depends_on_category ?? null,
+          depends_on_value: values.depends_on_value || null,
           sort_order: values.sort_order ?? 0,
           is_active: values.is_active ?? true,
           source: values.source,
@@ -170,6 +182,16 @@ export default function GrantConfigManagement() {
       dataIndex: 'parent_label',
       width: 180,
       render: value => value || <Text type="secondary">顶级</Text>,
+    },
+    {
+      title: '依托条件',
+      key: 'dependency',
+      width: 190,
+      render: (_, record) => (
+        record.depends_on_category && record.depends_on_value
+          ? <Tag color="blue">{record.depends_on_category}: {record.depends_on_value}</Tag>
+          : <Text type="secondary">无</Text>
+      ),
     },
     { title: '排序', dataIndex: 'sort_order', width: 90 },
     {
@@ -259,6 +281,15 @@ export default function GrantConfigManagement() {
               />
             </Form.Item>
           )}
+          <Form.Item label="依托分类" name="depends_on_category" tooltip="用于控制申报页的级联可见性">
+            <Select
+              allowClear
+              options={categories.map(category => ({ label: category.label, value: category.key }))}
+            />
+          </Form.Item>
+          <Form.Item label="依托值" name="depends_on_value" tooltip="填写上游配置值；* 表示上游任意值已选择后可用">
+            <Input placeholder="例如：医学科学部，或 *" />
+          </Form.Item>
           <Form.Item label="排序" name="sort_order">
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>

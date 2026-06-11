@@ -81,6 +81,8 @@ export interface GrantConfigItem {
   value: string;
   parent_id?: number | null;
   parent_label?: string | null;
+  depends_on_category?: GrantConfigCategory | null;
+  depends_on_value?: string | null;
   sort_order: number;
   is_active: boolean;
   source?: string | null;
@@ -93,6 +95,8 @@ export interface CreateGrantConfigItemRequest {
   label: string;
   value?: string;
   parent_id?: number | null;
+  depends_on_category?: GrantConfigCategory | null;
+  depends_on_value?: string | null;
   sort_order?: number;
   is_active?: boolean;
   source?: string;
@@ -102,6 +106,8 @@ export interface UpdateGrantConfigItemRequest {
   label?: string;
   value?: string;
   parent_id?: number | null;
+  depends_on_category?: GrantConfigCategory | null;
+  depends_on_value?: string | null;
   sort_order?: number;
   is_active?: boolean;
   source?: string;

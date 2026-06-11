@@ -123,6 +123,8 @@ class GrantConfigItem(Base):
     label = Column(String(255), index=True)
     value = Column(String(255), index=True)
     parent_id = Column(Integer, ForeignKey("grant_config_items.id"), nullable=True, index=True)
+    depends_on_category = Column(String(64), nullable=True, index=True)
+    depends_on_value = Column(String(255), nullable=True, index=True)
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     source = Column(String(255), nullable=True)

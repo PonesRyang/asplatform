@@ -43,6 +43,8 @@ def _grant_config_response(item: GrantConfigItem, db: Session) -> GrantConfigIte
         label=item.label,
         value=item.value,
         parent_id=item.parent_id,
+        depends_on_category=item.depends_on_category or None,
+        depends_on_value=item.depends_on_value or None,
         parent_label=parent_label,
         sort_order=item.sort_order or 0,
         is_active=item.is_active,
@@ -210,6 +212,8 @@ def create_grant_config_item(
         label=label,
         value=value,
         parent_id=item.parent_id,
+        depends_on_category=item.depends_on_category,
+        depends_on_value=item.depends_on_value,
         sort_order=item.sort_order,
         is_active=item.is_active,
         source=item.source,
@@ -246,6 +250,10 @@ def update_grant_config_item(
         db_item.value = str(value).strip()
     if "parent_id" in updates:
         db_item.parent_id = parent_id
+    if "depends_on_category" in updates:
+        db_item.depends_on_category = updates["depends_on_category"] or None
+    if "depends_on_value" in updates:
+        db_item.depends_on_value = updates["depends_on_value"] or None
     if "sort_order" in updates:
         db_item.sort_order = updates["sort_order"]
     if "is_active" in updates:

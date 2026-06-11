@@ -26,9 +26,16 @@ export interface GrantProjectSummary {
   updated_at: string
 }
 
-export async function getGrantConfigOptions(token: string): Promise<GrantConfigOptions> {
+export async function getGrantConfigOptions(
+  token: string,
+  context?: { researchAreaPath?: string[]; diseasePath?: string[] },
+): Promise<GrantConfigOptions> {
   const response = await api.get<GrantConfigOptions>('/api/ai/grant/config/options', {
-    params: { token },
+    params: {
+      token,
+      ...(context?.researchAreaPath?.length ? { research_area_path: context.researchAreaPath.join('/') } : {}),
+      ...(context?.diseasePath?.length ? { disease_path: context.diseasePath.join('/') } : {}),
+    },
   })
   return response.data
 }
