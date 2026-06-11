@@ -88,7 +88,7 @@ export default function LandingPage() {
       {/* NAVBAR                                                          */}
       {/* ================================================================ */}
       <nav style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '0 56px', height: 72,
         background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)',
         borderBottom: `1px solid ${C.border}`,
@@ -109,10 +109,6 @@ export default function LandingPage() {
             学术科研辅助平台
           </span>
         </div>
-        <Button type="text" onClick={() => navigate('/login')}
-          style={{ color: C.textMuted, fontWeight: 500, fontSize: 14 }}>
-          管理员后台
-        </Button>
       </nav>
 
       {/* ================================================================ */}
