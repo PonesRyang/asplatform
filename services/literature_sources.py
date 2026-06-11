@@ -46,6 +46,15 @@ SUPPORTED_LITERATURE_DATABASES = [
         "default_selected": False,
         "sort_order": 40,
     },
+    {
+        "key": "openalex",
+        "name": "OpenAlex",
+        "description": "开放学术知识图谱，覆盖跨学科论文、作者、期刊与开放获取元数据。",
+        "modules": "all",
+        "is_enabled": True,
+        "default_selected": False,
+        "sort_order": 50,
+    },
 ]
 
 
@@ -83,6 +92,7 @@ def list_literature_database_configs(
 ) -> List[LiteratureDatabaseConfig]:
     ensure_literature_database_seed(db)
     query = db.query(LiteratureDatabaseConfig)
+    query = query.filter(LiteratureDatabaseConfig.key.in_(SUPPORTED_LITERATURE_DATABASE_KEYS))
     if not include_disabled:
         query = query.filter(LiteratureDatabaseConfig.is_enabled == True)
     items = query.order_by(

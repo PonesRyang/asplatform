@@ -29,7 +29,11 @@ from utils.auth import get_current_admin, check_permission
 from utils.security import get_password_hash
 from database import get_db
 from models import UserGroup, AdminUser, TokenRecord, GrantConfigItem, LiteratureDatabaseConfig
-from services.literature_sources import ensure_literature_database_seed, update_literature_database_config
+from services.literature_sources import (
+    ensure_literature_database_seed,
+    list_literature_database_configs,
+    update_literature_database_config,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -295,10 +299,7 @@ def list_literature_databases(
 ):
     check_permission(current_user, "grant_config:read")
     ensure_literature_database_seed(db)
-    return db.query(LiteratureDatabaseConfig).order_by(
-        LiteratureDatabaseConfig.sort_order.asc(),
-        LiteratureDatabaseConfig.id.asc(),
-    ).all()
+    return list_literature_database_configs(db, include_disabled=True)
 
 
 @router.put("/literature-databases/{item_id}", response_model=LiteratureDatabaseConfigResponse)

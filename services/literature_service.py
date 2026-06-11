@@ -14,11 +14,22 @@ class LiteratureService:
         self.doaj_base = "https://doaj.org/api/v2/search/journals"
         self.arxiv_base = "https://export.arxiv.org/api/query"
         self.crossref_base = "https://api.crossref.org/works"
+        self.openalex_base = "https://api.openalex.org/works"
         # Simple in-memory cache: {query: {citations: [], timestamp: float}}
         self.cache = {}
         self.cache_ttl = 3600  # Cache for 1 hour
         self.pubmed_query_cache = {}
         self.arxiv_query_cache = {}
+        self.plain_english_query_cache = {}
+
+    def _search_adapters(self):
+        return {
+            "pubmed": self._search_pubmed,
+            "europepmc": self._search_europepmc,
+            "crossref": self._search_crossref,
+            "arxiv": self._search_arxiv,
+            "openalex": self._search_openalex,
+        }
 
     def _has_cjk(self, value: str) -> bool:
         return bool(re.search(r"[\u4e00-\u9fff]", value or ""))
@@ -213,6 +224,36 @@ class LiteratureService:
         expanded = self._compose_arxiv_query(merged)
         effective_query = expanded or f"all:{query}"
         self.arxiv_query_cache[query] = effective_query
+        return effective_query
+
+    async def _build_plain_english_query(self, query: str) -> str:
+        if not self._has_cjk(query):
+            return query
+
+        if query in self.plain_english_query_cache:
+            return self.plain_english_query_cache[query]
+
+        concepts = self._local_pubmed_concepts(query)
+        ai_concepts = []
+        if len(concepts) < 2:
+            ai_concepts = await self._ai_pubmed_concepts(query)
+
+        merged = concepts[:]
+        existing_terms = {term.lower() for group in merged for term in group}
+        for group in ai_concepts:
+            fresh = [term for term in group if term.lower() not in existing_terms]
+            if fresh:
+                merged.append(fresh)
+                existing_terms.update(term.lower() for term in fresh)
+
+        english_terms = []
+        for group in merged[:5]:
+            for term in group:
+                if term and not self._has_cjk(term):
+                    english_terms.append(term)
+                    break
+        effective_query = " ".join(english_terms) or query
+        self.plain_english_query_cache[query] = effective_query
         return effective_query
 
     def _format_citation(self, authors: List[str], title: str, source: str, pubdate: str, doi: str = "", style: str = "apa") -> dict:
@@ -528,6 +569,53 @@ class LiteratureService:
                 print(f"arXiv search error: {e}")
                 return []
 
+    async def _search_openalex(self, query: str, max_results: int = 5) -> List[dict]:
+        """Search OpenAlex works."""
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            try:
+                effective_query = await self._build_plain_english_query(query)
+                params = {
+                    "search": effective_query,
+                    "per-page": max_results,
+                    "select": "id,doi,title,publication_year,authorships,primary_location",
+                }
+                resp = await client.get(self.openalex_base, params=params)
+                if resp.status_code != 200:
+                    print(f"OpenAlex search error: HTTP {resp.status_code}")
+                    return []
+
+                results = []
+                for item in resp.json().get("results", [])[:max_results]:
+                    title = item.get("title", "") or ""
+                    authors = [
+                        authorship.get("author", {}).get("display_name", "")
+                        for authorship in item.get("authorships", [])
+                        if isinstance(authorship, dict) and authorship.get("author", {}).get("display_name")
+                    ]
+                    primary_location = item.get("primary_location") or {}
+                    source_info = primary_location.get("source") or {}
+                    source = (
+                        source_info.get("display_name")
+                        or primary_location.get("raw_source_name")
+                        or "OpenAlex"
+                    )
+                    year = str(item.get("publication_year") or "")
+                    doi = (item.get("doi") or "").replace("https://doi.org/", "")
+                    link = primary_location.get("landing_page_url") or item.get("doi") or item.get("id") or ""
+
+                    if title:
+                        citation = self._format_citation(authors, title, source, year, doi, style="apa")
+                        citation["database"] = "OpenAlex"
+                        citation["link"] = link
+                        if item.get("id"):
+                            citation["openalex_id"] = item["id"]
+                        results.append(citation)
+
+                return results
+            except Exception as e:
+                print(f"OpenAlex search error: {e}")
+                return []
+
     def _deduplicate_citations(self, citations: List[dict]) -> List[dict]:
         """Remove duplicate citations based on title similarity"""
         seen_titles = set()
@@ -565,18 +653,13 @@ class LiteratureService:
                 print(f"Using cached results for: {query}")
                 return cached["citations"][:max_results]
 
-        # Search all requested databases in parallel
         all_citations = []
-
-        search_tasks = []
-        if "pubmed" in databases:
-            search_tasks.append(self._search_pubmed(query, max_results))
-        if "europepmc" in databases:
-            search_tasks.append(self._search_europepmc(query, max_results))
-        if "crossref" in databases:
-            search_tasks.append(self._search_crossref(query, max_results))
-        if "arxiv" in databases:
-            search_tasks.append(self._search_arxiv(query, max_results))
+        adapters = self._search_adapters()
+        search_tasks = [
+            adapters[database](query, max_results)
+            for database in databases
+            if database in adapters
+        ]
 
         # Run searches concurrently
         if search_tasks:
@@ -589,7 +672,7 @@ class LiteratureService:
         unique_citations = self._deduplicate_citations(all_citations)
 
         # Sort by relevance (PubMed first, then others)
-        priority = {"PubMed": 0, "Europe PMC": 1, "CrossRef": 2, "arXiv": 3}
+        priority = {"PubMed": 0, "Europe PMC": 1, "CrossRef": 2, "arXiv": 3, "OpenAlex": 4}
         unique_citations.sort(key=lambda x: priority.get(x["database"], 4))
 
         # Cache positive results only. Empty responses are often caused by
