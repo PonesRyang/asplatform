@@ -1,5 +1,5 @@
 import api from './api'
-import type { GrantInputState, GrantProject, GrantReportVersion, GrantStepKey } from '../types/grant'
+import type { GrantConfigOptions, GrantInputState, GrantProject, GrantReportVersion, GrantStepKey } from '../types/grant'
 
 interface GrantProjectApiResponse {
   id: number
@@ -24,6 +24,13 @@ export interface GrantProjectSummary {
   fund_type: string
   research_area_path: string[]
   updated_at: string
+}
+
+export async function getGrantConfigOptions(token: string): Promise<GrantConfigOptions> {
+  const response = await api.get<GrantConfigOptions>('/api/ai/grant/config/options', {
+    params: { token },
+  })
+  return response.data
 }
 
 function toApiInput(input: GrantInputState) {

@@ -15,8 +15,11 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import verify_service_access
 from database import get_db
-from models import AdminUser, GrantProject, GrantStep
+from models import AdminUser, GrantConfigItem, GrantProject, GrantStep
 from schemas.grant import (
+    GrantConfigOption,
+    GrantConfigOptionsResponse,
+    GrantConfigTreeNode,
     GrantInputState,
     GrantKeywordPatch,
     GrantProjectCreate,
@@ -97,6 +100,37 @@ def _project_to_summary(project: GrantProject) -> GrantProjectSummary:
         research_area_path=_json_loads(project.research_area_path, []),
         updated_at=project.updated_at,
     )
+
+
+def _flat_config_options(db: Session, category: str) -> List[GrantConfigOption]:
+    items = db.query(GrantConfigItem).filter(
+        GrantConfigItem.category == category,
+        GrantConfigItem.is_active == True,
+        GrantConfigItem.parent_id.is_(None),
+    ).order_by(GrantConfigItem.sort_order.asc(), GrantConfigItem.id.asc()).all()
+    return [GrantConfigOption(label=item.label, value=item.value or item.label) for item in items]
+
+
+def _tree_config_options(db: Session, category: str) -> List[GrantConfigTreeNode]:
+    items = db.query(GrantConfigItem).filter(
+        GrantConfigItem.category == category,
+        GrantConfigItem.is_active == True,
+    ).order_by(GrantConfigItem.sort_order.asc(), GrantConfigItem.id.asc()).all()
+
+    node_by_id: Dict[int, GrantConfigTreeNode] = {
+        item.id: GrantConfigTreeNode(label=item.label, value=item.value or item.label)
+        for item in items
+    }
+    roots: List[GrantConfigTreeNode] = []
+
+    for item in items:
+        node = node_by_id[item.id]
+        if item.parent_id and item.parent_id in node_by_id:
+            node_by_id[item.parent_id].children.append(node)
+        else:
+            roots.append(node)
+
+    return roots
 
 
 async def _authorize_project_query(
@@ -323,6 +357,26 @@ def _build_proposal_docx(project: GrantProject) -> io.BytesIO:
     document.save(buffer)
     buffer.seek(0)
     return buffer
+
+
+@router.get("/config/options", response_model=GrantConfigOptionsResponse)
+async def get_grant_config_options(
+    token: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: Optional[AdminUser] = Depends(get_optional_admin),
+):
+    if current_user:
+        check_permission(current_user, "ai")
+    else:
+        await verify_service_access(db, token, "ai")
+
+    return GrantConfigOptionsResponse(
+        fundTypes=_flat_config_options(db, "fund_type"),
+        researchAreas=_tree_config_options(db, "research_area"),
+        diseases=_tree_config_options(db, "disease"),
+        variableTypes=_flat_config_options(db, "variable_type"),
+        phenotypes=_flat_config_options(db, "phenotype"),
+    )
 
 
 @router.post("/projects", response_model=GrantProjectResponse)

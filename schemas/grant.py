@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 GrantStepKey = Literal["input", "keywords", "topics", "report", "proposal"]
@@ -61,6 +61,23 @@ class GrantStepHistoryItem(BaseModel):
         else:
             dt = dt.astimezone(timezone.utc)
         return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+class GrantConfigOption(BaseModel):
+    label: str
+    value: str
+
+
+class GrantConfigTreeNode(GrantConfigOption):
+    children: List["GrantConfigTreeNode"] = Field(default_factory=list)
+
+
+class GrantConfigOptionsResponse(BaseModel):
+    fundTypes: List[GrantConfigOption]
+    researchAreas: List[GrantConfigTreeNode]
+    diseases: List[GrantConfigTreeNode]
+    variableTypes: List[GrantConfigOption]
+    phenotypes: List[GrantConfigOption]
 
 
 class GrantProjectSummary(BaseModel):

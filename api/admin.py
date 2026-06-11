@@ -13,6 +13,9 @@ from schemas.admin import (
     AdminUserResponse,
     AdminUserCreate,
     AdminUserUpdate,
+    GrantConfigItemCreate,
+    GrantConfigItemResponse,
+    GrantConfigItemUpdate,
 )
 from schemas.auth import (
     TokenCreate,
@@ -23,9 +26,60 @@ from schemas.auth import (
 from utils.auth import get_current_admin, check_permission
 from utils.security import get_password_hash
 from database import get_db
-from models import UserGroup, AdminUser, TokenRecord
+from models import UserGroup, AdminUser, TokenRecord, GrantConfigItem
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+def _grant_config_response(item: GrantConfigItem, db: Session) -> GrantConfigItemResponse:
+    parent_label = None
+    if item.parent_id:
+        parent = db.query(GrantConfigItem).filter(GrantConfigItem.id == item.parent_id).first()
+        parent_label = parent.label if parent else None
+
+    return GrantConfigItemResponse(
+        id=item.id,
+        category=item.category,
+        label=item.label,
+        value=item.value,
+        parent_id=item.parent_id,
+        parent_label=parent_label,
+        sort_order=item.sort_order or 0,
+        is_active=item.is_active,
+        source=item.source,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+def _validate_grant_config_parent(db: Session, category: str, parent_id: Optional[int], item_id: Optional[int] = None):
+    if not parent_id:
+        return
+    if item_id and parent_id == item_id:
+        raise HTTPException(status_code=400, detail="配置项不能选择自己作为上级")
+    parent = db.query(GrantConfigItem).filter(GrantConfigItem.id == parent_id).first()
+    if not parent:
+        raise HTTPException(status_code=400, detail="上级配置项不存在")
+    if parent.category != category:
+        raise HTTPException(status_code=400, detail="上级配置项必须属于同一分类")
+
+
+def _assert_grant_config_unique(
+    db: Session,
+    category: str,
+    value: str,
+    parent_id: Optional[int],
+    item_id: Optional[int] = None,
+):
+    query = db.query(GrantConfigItem).filter(
+        GrantConfigItem.category == category,
+        GrantConfigItem.value == value,
+        GrantConfigItem.parent_id == parent_id,
+    )
+    if item_id:
+        query = query.filter(GrantConfigItem.id != item_id)
+    if query.first():
+        raise HTTPException(status_code=400, detail="同一上级下已存在相同配置值")
 
 
 @router.get("/groups", response_model=List[UserGroupResponse])
@@ -107,6 +161,120 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: Admin
     db.delete(db_user)
     db.commit()
     return {"message": "User deleted"}
+
+
+@router.get("/grant-config", response_model=List[GrantConfigItemResponse])
+def list_grant_config_items(
+    category: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin),
+):
+    check_permission(current_user, "grant_config:read")
+    query = db.query(GrantConfigItem)
+    if category:
+        query = query.filter(GrantConfigItem.category == category)
+    if search:
+        query = query.filter(
+            (GrantConfigItem.label.contains(search)) |
+            (GrantConfigItem.value.contains(search)) |
+            (GrantConfigItem.source.contains(search))
+        )
+    items = query.order_by(
+        GrantConfigItem.category.asc(),
+        GrantConfigItem.parent_id.asc().nullsfirst(),
+        GrantConfigItem.sort_order.asc(),
+        GrantConfigItem.id.asc(),
+    ).all()
+    return [_grant_config_response(item, db) for item in items]
+
+
+@router.post("/grant-config", response_model=GrantConfigItemResponse)
+def create_grant_config_item(
+    item: GrantConfigItemCreate,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin),
+):
+    check_permission(current_user, "grant_config:write")
+    value = (item.value or item.label).strip()
+    label = item.label.strip()
+    category = item.category.strip()
+    if not category or not label:
+        raise HTTPException(status_code=400, detail="分类和名称不能为空")
+
+    _validate_grant_config_parent(db, category, item.parent_id)
+    _assert_grant_config_unique(db, category, value, item.parent_id)
+
+    db_item = GrantConfigItem(
+        category=category,
+        label=label,
+        value=value,
+        parent_id=item.parent_id,
+        sort_order=item.sort_order,
+        is_active=item.is_active,
+        source=item.source,
+    )
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return _grant_config_response(db_item, db)
+
+
+@router.put("/grant-config/{item_id}", response_model=GrantConfigItemResponse)
+def update_grant_config_item(
+    item_id: int,
+    payload: GrantConfigItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin),
+):
+    check_permission(current_user, "grant_config:write")
+    db_item = db.query(GrantConfigItem).filter(GrantConfigItem.id == item_id).first()
+    if not db_item:
+        raise HTTPException(status_code=404, detail="配置项不存在")
+
+    updates = payload.dict(exclude_unset=True)
+    label = updates.get("label", db_item.label)
+    value = updates.get("value", db_item.value) or label
+    parent_id = updates.get("parent_id", db_item.parent_id)
+
+    _validate_grant_config_parent(db, db_item.category, parent_id, item_id)
+    _assert_grant_config_unique(db, db_item.category, value, parent_id, item_id)
+
+    if "label" in updates:
+        db_item.label = label.strip()
+    if "value" in updates or "label" in updates:
+        db_item.value = str(value).strip()
+    if "parent_id" in updates:
+        db_item.parent_id = parent_id
+    if "sort_order" in updates:
+        db_item.sort_order = updates["sort_order"]
+    if "is_active" in updates:
+        db_item.is_active = updates["is_active"]
+    if "source" in updates:
+        db_item.source = updates["source"]
+    db_item.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(db_item)
+    return _grant_config_response(db_item, db)
+
+
+@router.delete("/grant-config/{item_id}")
+def delete_grant_config_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin),
+):
+    check_permission(current_user, "grant_config:write")
+    db_item = db.query(GrantConfigItem).filter(GrantConfigItem.id == item_id).first()
+    if not db_item:
+        raise HTTPException(status_code=404, detail="配置项不存在")
+    if db.query(GrantConfigItem).filter(GrantConfigItem.parent_id == item_id).first():
+        raise HTTPException(status_code=400, detail="请先删除或迁移下级配置项")
+
+    db.delete(db_item)
+    db.commit()
+    return {"message": "配置项已删除"}
 
 
 @router.post("/tokens", response_model=TokenResponse)

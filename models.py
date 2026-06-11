@@ -114,3 +114,17 @@ class GrantStep(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
     project = relationship("GrantProject", back_populates="steps")
+
+
+class GrantConfigItem(Base):
+    __tablename__ = "grant_config_items"
+    id = Column(Integer, primary_key=True, index=True)
+    category = Column(String(64), index=True)
+    label = Column(String(255), index=True)
+    value = Column(String(255), index=True)
+    parent_id = Column(Integer, ForeignKey("grant_config_items.id"), nullable=True, index=True)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    source = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))

@@ -9,7 +9,11 @@ import type {
   CreateTokenRequest,
   BatchCreateTokenRequest,
   BatchDeleteTokenRequest,
+  CreateGrantConfigItemRequest,
   UpdateTokenRequest,
+  UpdateGrantConfigItemRequest,
+  GrantConfigCategory,
+  GrantConfigItem,
 } from '../types/admin'
 
 // ── User Groups ──
@@ -85,4 +89,30 @@ export async function deleteToken(id: number): Promise<void> {
 export async function updateToken(id: number, data: UpdateTokenRequest): Promise<TokenRecord> {
   const response = await api.put<TokenRecord>(`/api/admin/tokens/${id}`, data)
   return response.data
+}
+
+// ── Grant Application Config ──
+
+export async function listGrantConfigItems(category?: GrantConfigCategory, search?: string): Promise<GrantConfigItem[]> {
+  const response = await api.get<GrantConfigItem[]>('/api/admin/grant-config', {
+    params: {
+      ...(category ? { category } : {}),
+      ...(search ? { search } : {}),
+    },
+  })
+  return response.data
+}
+
+export async function createGrantConfigItem(data: CreateGrantConfigItemRequest): Promise<GrantConfigItem> {
+  const response = await api.post<GrantConfigItem>('/api/admin/grant-config', data)
+  return response.data
+}
+
+export async function updateGrantConfigItem(id: number, data: UpdateGrantConfigItemRequest): Promise<GrantConfigItem> {
+  const response = await api.put<GrantConfigItem>(`/api/admin/grant-config/${id}`, data)
+  return response.data
+}
+
+export async function deleteGrantConfigItem(id: number): Promise<void> {
+  await api.delete(`/api/admin/grant-config/${id}`)
 }

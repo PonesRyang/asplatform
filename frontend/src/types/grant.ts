@@ -10,6 +10,23 @@ export interface GrantInputState {
   variableName: string
 }
 
+export interface GrantConfigOption {
+  label: string
+  value: string
+}
+
+export interface GrantConfigTreeNode extends GrantConfigOption {
+  children?: GrantConfigTreeNode[]
+}
+
+export interface GrantConfigOptions {
+  fundTypes: GrantConfigOption[]
+  researchAreas: GrantConfigTreeNode[]
+  diseases: GrantConfigTreeNode[]
+  variableTypes: GrantConfigOption[]
+  phenotypes: GrantConfigOption[]
+}
+
 export interface GrantKeyword {
   id: string
   text: string

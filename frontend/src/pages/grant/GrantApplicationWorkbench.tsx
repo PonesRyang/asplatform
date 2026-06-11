@@ -30,7 +30,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import { grantSteps } from './grantFlowConfig';
-import type { GrantCandidateTopic, GrantInputState, GrantProject, GrantProposalSection, GrantReference, GrantReportVersion, GrantStepKey } from '../../types/grant';
+import type { GrantCandidateTopic, GrantConfigOptions, GrantInputState, GrantProject, GrantProposalSection, GrantReference, GrantReportVersion, GrantStepKey } from '../../types/grant';
 import { useServiceToken } from '../../hooks/useServiceToken';
 import {
   createGrantProject,
@@ -39,6 +39,7 @@ import {
   generateGrantProposal,
   generateGrantReport,
   generateGrantTopics,
+  getGrantConfigOptions,
   getGrantProject,
   getGrantReportHistory,
   listGrantProjects,
@@ -74,6 +75,14 @@ const emptyGrantProject: GrantProject = {
   reportSections: [],
   proposalSections: [],
   updatedAt: '',
+};
+
+const emptyConfigOptions: GrantConfigOptions = {
+  fundTypes: [],
+  researchAreas: [],
+  diseases: [],
+  variableTypes: [],
+  phenotypes: [],
 };
 
 function getStepFromPath(pathname: string): GrantStepKey {
@@ -204,7 +213,19 @@ function SidePanel({ project, currentStep }: { project: GrantProject; currentSte
   );
 }
 
-function InputPage({ project, onNext, loading }: { project: GrantProject; onNext: (input: GrantInputState) => void; loading: boolean }) {
+function InputPage({
+  project,
+  configOptions,
+  configLoading,
+  onNext,
+  loading,
+}: {
+  project: GrantProject;
+  configOptions: GrantConfigOptions;
+  configLoading: boolean;
+  onNext: (input: GrantInputState) => void;
+  loading: boolean;
+}) {
   const [form] = Form.useForm<GrantInputState>();
   const formValues = {
     fundType: project.input.fundType,
@@ -236,22 +257,19 @@ function InputPage({ project, onNext, loading }: { project: GrantProject; onNext
           <Col span={12}>
             <Form.Item label="课题类型" name="fundType" rules={[{ required: true }]}>
               <Select
-                options={['国自然-青年基金', '国自然-面上项目', '国自然-地区项目', '省市级项目', '其他'].map(value => ({ value, label: value }))}
+                loading={configLoading}
+                showSearch
+                optionFilterProp="label"
+                options={configOptions.fundTypes}
               />
             </Form.Item>
           </Col>
           <Col span={12}>
             <Form.Item label="研究领域 / 研究方向" name="researchAreaPath" rules={[{ required: true }]}>
               <Cascader
-                options={[{
-                  value: '医学科学部',
-                  label: '医学科学部',
-                  children: [{
-                    value: '肿瘤学',
-                    label: '肿瘤学',
-                    children: [{ value: '肿瘤免疫', label: '肿瘤免疫' }],
-                  }],
-                }]}
+                options={configOptions.researchAreas}
+                showSearch
+                changeOnSelect
               />
             </Form.Item>
           </Col>
@@ -263,22 +281,32 @@ function InputPage({ project, onNext, loading }: { project: GrantProject; onNext
           <Col span={12}>
             <Form.Item label="疾病类型 / 名称" name="diseasePath">
               <Cascader
-                options={[{
-                  value: '肿瘤',
-                  label: '肿瘤',
-                  children: [{ value: '黑色素瘤', label: '黑色素瘤' }],
-                }]}
+                options={configOptions.diseases}
+                showSearch
+                changeOnSelect
               />
             </Form.Item>
           </Col>
           <Col span={12}>
             <Form.Item label="表型 / 科学问题" name="phenotype">
-              <Input />
+              <Select
+                allowClear
+                loading={configLoading}
+                showSearch
+                optionFilterProp="label"
+                options={configOptions.phenotypes}
+              />
             </Form.Item>
           </Col>
           <Col span={12}>
             <Form.Item label="主变量类型" name="variableType">
-              <Select options={['基因', '蛋白', '膜受体', '信号通路', '细胞群', '药物', '技术方法'].map(value => ({ value, label: value }))} />
+              <Select
+                allowClear
+                loading={configLoading}
+                showSearch
+                optionFilterProp="label"
+                options={configOptions.variableTypes}
+              />
             </Form.Item>
           </Col>
           <Col span={12}>
@@ -719,6 +747,8 @@ export default function GrantApplicationWorkbench() {
   const [selectedReportVersionId, setSelectedReportVersionId] = useState<number | null>(null);
   const [selectedProposalSectionKey, setSelectedProposalSectionKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [configOptions, setConfigOptions] = useState<GrantConfigOptions>(emptyConfigOptions);
+  const [configLoading, setConfigLoading] = useState(false);
   const [bootstrapped, setBootstrapped] = useState(false);
 
   const routeProjectId = useMemo(() => {
@@ -745,9 +775,14 @@ export default function GrantApplicationWorkbench() {
 
     const loadProject = async () => {
       setLoading(true);
+      setConfigLoading(true);
       try {
-        const projects = await listGrantProjects(serviceToken);
+        const [projects, options] = await Promise.all([
+          listGrantProjects(serviceToken),
+          getGrantConfigOptions(serviceToken),
+        ]);
         setProjectSummaries(projects);
+        setConfigOptions(options);
 
         if (routeProjectId) {
           const data = await getGrantProject(routeProjectId, serviceToken);
@@ -761,9 +796,11 @@ export default function GrantApplicationWorkbench() {
         message.error(error?.response?.data?.detail || error?.message || '加载课题申报项目失败');
         setProject(emptyGrantProject);
         setProjectSummaries([]);
+        setConfigOptions(emptyConfigOptions);
         setBootstrapped(true);
       } finally {
         setLoading(false);
+        setConfigLoading(false);
       }
     };
 
@@ -1002,7 +1039,7 @@ export default function GrantApplicationWorkbench() {
 
     switch (currentStep) {
       case 'input':
-        return <InputPage project={project} loading={loading} onNext={handleInputNext} />;
+        return <InputPage project={project} configOptions={configOptions} configLoading={configLoading} loading={loading} onNext={handleInputNext} />;
       case 'keywords':
         return <KeywordsPage project={project} loading={loading} onPrev={prev} onGenerateKeywords={handleGenerateKeywords} onSearchReferences={handleSearchReferences} onNext={handleKeywordsNext} />;
       case 'topics':
@@ -1012,9 +1049,9 @@ export default function GrantApplicationWorkbench() {
       case 'proposal':
         return <ProposalPage project={project} selectedSectionKey={selectedProposalSectionKey} onSelectSection={setSelectedProposalSectionKey} loading={loading} onPrev={prev} onExport={handleExportWord} />;
       default:
-        return <InputPage project={project} loading={loading} onNext={next} />;
+        return <InputPage project={project} configOptions={configOptions} configLoading={configLoading} loading={loading} onNext={next} />;
     }
-  }, [currentStep, currentIndex, project, loading, reportVersions, selectedReportVersionId, selectedProposalSectionKey]);
+  }, [currentStep, currentIndex, project, configOptions, configLoading, loading, reportVersions, selectedReportVersionId, selectedProposalSectionKey]);
 
   if (!routeProjectId && !isNewProjectRoute) {
     return (
@@ -1032,7 +1069,7 @@ export default function GrantApplicationWorkbench() {
       <div style={{ background: '#f5f7fb', margin: -24, padding: 24, minHeight: 'calc(100vh - 112px)' }}>
         <Row gutter={[16, 16]}>
           <Col xs={24} xl={18}>
-            <InputPage project={project} loading={loading} onNext={handleInputNext} />
+            <InputPage project={project} configOptions={configOptions} configLoading={configLoading} loading={loading} onNext={handleInputNext} />
           </Col>
           <Col xs={24} xl={6}>
             <SidePanel project={project} currentStep="input" />
@@ -1052,7 +1089,7 @@ export default function GrantApplicationWorkbench() {
         </Col>
         <Col xs={24} xl={6}>
           <SidePanel project={project} currentStep={currentStep} />
-          <Card title="模拟数据说明" style={{ borderRadius: 8, marginTop: 16 }}>
+          <Card title="项目数据统计" style={{ borderRadius: 8, marginTop: 16 }}>
             <Space direction="vertical" size={10}>
               <Statistic title="AND 关键词" value={project.keywords.must.length} suffix="个" />
               <Statistic title="OR 关键词" value={project.keywords.should.length} suffix="个" />

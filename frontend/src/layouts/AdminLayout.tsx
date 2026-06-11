@@ -1,20 +1,27 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { Suspense, lazy, useEffect, useState } from 'react';
+import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout, Menu, Button, Typography, Avatar, Dropdown, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   TeamOutlined,
   UserOutlined,
   KeyOutlined,
+  SettingOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DashboardOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../hooks/useAuth';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
+
+const UserGroupManagement = lazy(() => import('../pages/admin/UserGroupManagement'));
+const UserManagement = lazy(() => import('../pages/admin/UserManagement'));
+const TokenManagement = lazy(() => import('../pages/admin/TokenManagement'));
+const GrantConfigManagement = lazy(() => import('../pages/admin/GrantConfigManagement'));
 
 interface AdminMenuItem {
   key: string;
@@ -41,6 +48,12 @@ const adminMenuItems: AdminMenuItem[] = [
     icon: <KeyOutlined />,
     label: '令牌管理',
     path: '/admin/tokens',
+  },
+  {
+    key: 'grant-config',
+    icon: <SettingOutlined />,
+    label: '申报配置',
+    path: '/admin/grant-config',
   },
 ];
 
@@ -215,7 +228,16 @@ export default function AdminLayout() {
             minHeight: 280,
           }}
         >
-          <Outlet />
+          <Suspense fallback={<LoadingSpinner tip="页面加载中..." />}>
+            <Routes>
+              <Route path="groups" element={<UserGroupManagement />} />
+              <Route path="users" element={<UserManagement />} />
+              <Route path="tokens" element={<TokenManagement />} />
+              <Route path="grant-config" element={<GrantConfigManagement />} />
+              <Route path="/" element={<Navigate to="groups" replace />} />
+              <Route path="*" element={<Navigate to="groups" replace />} />
+            </Routes>
+          </Suspense>
         </Content>
       </Layout>
     </Layout>
