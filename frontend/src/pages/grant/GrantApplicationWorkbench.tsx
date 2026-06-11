@@ -106,6 +106,28 @@ function scoreColor(score: number) {
   return '#a16207';
 }
 
+function grantStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    draft: '草稿',
+    keywords_ready: '关键词已生成',
+    references_ready: '文献已检索',
+    topics_ready: '候选选题已生成',
+    report_ready: '选题报告已生成',
+    proposal_ready: '申请书已生成',
+    generating: '生成中',
+    failed: '生成失败',
+  };
+  return labels[status] || status;
+}
+
+function grantStatusColor(status: string) {
+  if (status === 'failed') return 'red';
+  if (status === 'generating') return 'processing';
+  if (status === 'draft') return 'default';
+  if (status.includes('ready')) return 'green';
+  return 'blue';
+}
+
 function referenceMeta(reference: GrantReference) {
   return [
     reference.journal,
@@ -207,7 +229,9 @@ function SidePanel({ project, currentStep }: { project: GrantProject; currentSte
           <Descriptions.Item label="完成度">{current + 1} / 5</Descriptions.Item>
           <Descriptions.Item label="候选题">{project.topics.length} 个</Descriptions.Item>
           <Descriptions.Item label="文献证据">{project.references.length} 条</Descriptions.Item>
-          <Descriptions.Item label="状态">{project.status}</Descriptions.Item>
+          <Descriptions.Item label="状态">
+            <Tag color={grantStatusColor(project.status)}>{grantStatusLabel(project.status)}</Tag>
+          </Descriptions.Item>
         </Descriptions>
       </Card>
 
@@ -772,7 +796,7 @@ function ProjectListPage({
       dataIndex: 'status',
       key: 'status',
       width: 140,
-      render: (value: string) => <Tag color={value.includes('ready') ? 'green' : 'blue'}>{value}</Tag>,
+      render: (value: string) => <Tag color={grantStatusColor(value)}>{grantStatusLabel(value)}</Tag>,
     },
     { title: '更新时间', dataIndex: 'updated_at', key: 'updated_at', width: 220 },
     {
