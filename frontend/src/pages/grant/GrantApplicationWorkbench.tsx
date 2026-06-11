@@ -338,7 +338,10 @@ function InputPage({
           </Col>
           <Col span={12}>
             <Form.Item label="主变量名称" name="variableName">
-              <Input />
+              <Input
+                disabled={!watchedDiseasePath?.length}
+                placeholder={watchedDiseasePath?.length ? undefined : '请先选择疾病'}
+              />
             </Form.Item>
           </Col>
         </Row>
