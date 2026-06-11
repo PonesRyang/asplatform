@@ -111,7 +111,7 @@ export default function LandingPage() {
         </div>
         <Button type="text" onClick={() => navigate('/login')}
           style={{ color: C.textMuted, fontWeight: 500, fontSize: 14 }}>
-          管理登录
+          管理员后台
         </Button>
       </nav>
 
@@ -231,7 +231,7 @@ export default function LandingPage() {
         </Title>
         <div style={{ display: 'flex', gap: 40, justifyContent: 'center', flexWrap: 'wrap' }}>
           {[
-            { step: '01', title: '输入令牌', desc: '使用管理员分配的访问令牌登录平台', icon: '🔑' },
+            { step: '01', title: '普通用户令牌', desc: '使用管理员分配的服务令牌进入前台工具', icon: '🔑' },
             { step: '02', title: '选择工具', desc: '根据需求选择生信分析、AI 写作或文献对比', icon: '🛠' },
             { step: '03', title: '获取成果', desc: '一键生成图表、论文或分析报告，导出使用', icon: '📊' },
           ].map((s, i) => (

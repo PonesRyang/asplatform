@@ -38,7 +38,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(values.username, values.password);
-      message.success('登录成功');
+      message.success('管理员登录成功');
       navigate('/admin', { replace: true });
     } catch (err) {
       const errorMessage =
@@ -76,9 +76,9 @@ export default function LoginPage() {
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <div style={{ textAlign: 'center' }}>
             <Title level={3} style={{ marginBottom: 4 }}>
-              后台管理登录
+              管理员后台登录
             </Title>
-            <Text type="secondary">请使用管理员账号登录系统</Text>
+            <Text type="secondary">仅限管理员账号密码登录；普通用户请使用服务令牌进入前台工具</Text>
           </div>
 
           <Form<LoginFormValues>
@@ -118,12 +118,16 @@ export default function LoginPage() {
                 block
                 style={{ borderRadius: 8, height: 44 }}
               >
-                登录
+                进入管理员后台
               </Button>
             </Form.Item>
           </Form>
 
           <div style={{ textAlign: 'center' }}>
+            <Button type="link" onClick={() => navigate('/frontend/bio')}>
+              普通用户使用服务令牌进入
+            </Button>
+            <br />
             <Button type="link" onClick={() => navigate('/')}>
               返回首页
             </Button>

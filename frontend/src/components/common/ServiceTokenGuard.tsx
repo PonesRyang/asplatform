@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Input, Button, Spin, Result, Space, Typography } from 'antd';
 import { KeyOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { useServiceToken } from '../../hooks/useServiceToken';
@@ -22,6 +23,7 @@ export interface ServiceTokenGuardProps {
 //   4. Invalid        → error Result with retry option
 // ---------------------------------------------------------------------------
 export function ServiceTokenGuard({ children }: ServiceTokenGuardProps) {
+  const navigate = useNavigate();
   const { serviceToken, isValid, isVerifying, verifyToken, clearToken } =
     useServiceToken();
 
@@ -164,12 +166,12 @@ export function ServiceTokenGuard({ children }: ServiceTokenGuardProps) {
 
           {/* Title */}
           <Title level={3} style={{ margin: 0 }}>
-            学术辅助平台
+            普通用户入口
           </Title>
 
           {/* Description */}
           <Text type="secondary">
-            请输入系统分配给您的有效令牌以继续使用学术辅助功能。
+            请使用管理员分配的服务令牌进入前台工具；管理员账号不能在这里登录。
           </Text>
 
           {/* Input */}
@@ -204,7 +206,11 @@ export function ServiceTokenGuard({ children }: ServiceTokenGuardProps) {
             onClick={handleSubmit}
             style={{ height: 48 }}
           >
-            验证并进入
+            验证服务令牌并进入
+          </Button>
+
+          <Button type="link" onClick={() => navigate('/login')}>
+            我是管理员，去后台登录
           </Button>
         </Space>
       </Card>

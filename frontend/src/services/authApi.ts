@@ -15,8 +15,10 @@ const api = axios.create({
 // Request interceptor — attach admin JWT as Bearer token
 // ---------------------------------------------------------------------------
 api.interceptors.request.use((config) => {
+  const url = `${config.url || ''}`;
+  const isAdminSessionRequest = url === '/auth/me' || url === '/auth/password';
   const adminToken = getAdminToken();
-  if (adminToken && config.headers) {
+  if (adminToken && isAdminSessionRequest && config.headers) {
     config.headers.Authorization = `Bearer ${adminToken}`;
   }
   return config;
@@ -28,7 +30,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const url = `${error.config?.url || ''}`;
+    const isAdminSessionRequest = url === '/auth/me' || url === '/auth/password';
+    if (error.response?.status === 401 && isAdminSessionRequest) {
       clearAdminToken();
       // Only redirect if not already on the login page
       if (window.location.pathname !== '/login') {

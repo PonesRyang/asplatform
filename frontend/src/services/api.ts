@@ -6,8 +6,10 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
+    const url = `${config.url || ''}`
+    const isAdminRequest = url.startsWith('/api/admin')
     const token = localStorage.getItem('adminToken')
-    if (token) {
+    if (token && isAdminRequest) {
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
@@ -20,7 +22,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const url = `${error.config?.url || ''}`
+    const isAdminRequest = url.startsWith('/api/admin')
+    if (error.response?.status === 401 && isAdminRequest) {
       localStorage.removeItem('adminToken')
       const currentPath = window.location.pathname
       if (currentPath !== '/login') {
