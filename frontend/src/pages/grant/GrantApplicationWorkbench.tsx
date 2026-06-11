@@ -85,6 +85,12 @@ const emptyConfigOptions: GrantConfigOptions = {
   phenotypes: [],
 };
 
+interface GrantInputFormValues extends GrantInputState {
+  customDisease?: string;
+  customPhenotype?: string;
+  customVariableType?: string;
+}
+
 function getStepFromPath(pathname: string): GrantStepKey {
   const segment = pathname.split('/').filter(Boolean).pop();
   return validSteps.includes(segment as GrantStepKey) ? segment as GrantStepKey : 'input';
@@ -228,14 +234,17 @@ function InputPage({
   onNext: (input: GrantInputState) => void;
   loading: boolean;
 }) {
-  const [form] = Form.useForm<GrantInputState>();
+  const [form] = Form.useForm<GrantInputFormValues>();
   const watchedResearchAreaPath = Form.useWatch('researchAreaPath', form);
   const watchedDiseasePath = Form.useWatch('diseasePath', form);
+  const watchedCustomDisease = Form.useWatch('customDisease', form);
+  const hasDiseaseContext = Boolean(watchedDiseasePath?.length || watchedCustomDisease?.trim());
   const formValues = {
     fundType: project.input.fundType,
     researchAreaPath: project.input.researchAreaPath,
     subject: project.input.subject,
-    diseasePath: project.input.diseasePath,
+    diseasePath: project.input.diseasePath.length === 1 ? [] : project.input.diseasePath,
+    customDisease: project.input.diseasePath.length === 1 ? project.input.diseasePath[0] : '',
     phenotype: project.input.phenotype,
     variableType: project.input.variableType,
     variableName: project.input.variableName,
@@ -248,18 +257,36 @@ function InputPage({
   useEffect(() => {
     onConfigContextChange({
       researchAreaPath: watchedResearchAreaPath || [],
-      diseasePath: watchedDiseasePath || [],
+      diseasePath: watchedCustomDisease?.trim() ? [watchedCustomDisease.trim()] : watchedDiseasePath || [],
     });
-  }, [onConfigContextChange, JSON.stringify(watchedDiseasePath || []), JSON.stringify(watchedResearchAreaPath || [])]);
+  }, [onConfigContextChange, watchedCustomDisease, JSON.stringify(watchedDiseasePath || []), JSON.stringify(watchedResearchAreaPath || [])]);
 
-  const handleValuesChange = (changedValues: Partial<GrantInputState>, _allValues: GrantInputState) => {
+  const handleValuesChange = (changedValues: Partial<GrantInputFormValues>, _allValues: GrantInputFormValues) => {
     if (changedValues.researchAreaPath) {
-      form.setFieldsValue({ diseasePath: [], phenotype: '', variableType: '' });
+      form.setFieldsValue({ diseasePath: [], customDisease: '', phenotype: '', customPhenotype: '', variableType: '', customVariableType: '', variableName: '' });
       return;
     }
     if (changedValues.diseasePath) {
-      form.setFieldsValue({ phenotype: '', variableType: '' });
+      form.setFieldsValue({ customDisease: '', phenotype: '', customPhenotype: '', variableType: '', customVariableType: '', variableName: '' });
     }
+    if (changedValues.customDisease !== undefined) {
+      form.setFieldsValue({ diseasePath: [], phenotype: '', customPhenotype: '', variableType: '', customVariableType: '', variableName: '' });
+    }
+  };
+
+  const handleFinish = (values: GrantInputFormValues) => {
+    const customDisease = values.customDisease?.trim();
+    const customPhenotype = values.customPhenotype?.trim();
+    const customVariableType = values.customVariableType?.trim();
+    onNext({
+      fundType: values.fundType,
+      researchAreaPath: values.researchAreaPath,
+      subject: values.subject,
+      diseasePath: customDisease ? [customDisease] : values.diseasePath || [],
+      phenotype: customPhenotype || values.phenotype || '',
+      variableType: customVariableType || values.variableType || '',
+      variableName: values.variableName || '',
+    });
   };
 
   return (
@@ -273,7 +300,7 @@ function InputPage({
         message="高级选项不是必填，但会显著影响后续关键词和候选选题的聚焦度。"
         style={{ marginBottom: 16 }}
       />
-      <Form form={form} layout="vertical" initialValues={formValues} onFinish={onNext} onValuesChange={handleValuesChange}>
+      <Form form={form} layout="vertical" initialValues={formValues} onFinish={handleFinish} onValuesChange={handleValuesChange}>
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item label="课题类型" name="fundType" rules={[{ required: true }]}>
@@ -309,17 +336,29 @@ function InputPage({
                 placeholder={watchedResearchAreaPath?.length ? undefined : '请先选择医学研究领域'}
               />
             </Form.Item>
+            <Form.Item label="自定义疾病名称" name="customDisease">
+              <Input
+                disabled={!watchedResearchAreaPath?.length}
+                placeholder={watchedResearchAreaPath?.length ? '未在列表中时可手动填写' : '请先选择医学研究领域'}
+              />
+            </Form.Item>
           </Col>
           <Col span={12}>
             <Form.Item label="表型 / 科学问题" name="phenotype">
               <Select
                 allowClear
-                disabled={!watchedDiseasePath?.length}
+                disabled={!hasDiseaseContext}
                 loading={configLoading}
                 showSearch
                 optionFilterProp="label"
                 options={configOptions.phenotypes}
-                placeholder={watchedDiseasePath?.length ? undefined : '请先选择疾病'}
+                placeholder={hasDiseaseContext ? undefined : '请先选择或填写疾病'}
+              />
+            </Form.Item>
+            <Form.Item label="自定义表型 / 科学问题" name="customPhenotype">
+              <Input
+                disabled={!hasDiseaseContext}
+                placeholder={hasDiseaseContext ? '未在列表中时可手动填写' : '请先选择或填写疾病'}
               />
             </Form.Item>
           </Col>
@@ -327,20 +366,26 @@ function InputPage({
             <Form.Item label="主变量类型" name="variableType">
               <Select
                 allowClear
-                disabled={!watchedDiseasePath?.length}
+                disabled={!hasDiseaseContext}
                 loading={configLoading}
                 showSearch
                 optionFilterProp="label"
                 options={configOptions.variableTypes}
-                placeholder={watchedDiseasePath?.length ? undefined : '请先选择疾病'}
+                placeholder={hasDiseaseContext ? undefined : '请先选择或填写疾病'}
+              />
+            </Form.Item>
+            <Form.Item label="自定义主变量类型" name="customVariableType">
+              <Input
+                disabled={!hasDiseaseContext}
+                placeholder={hasDiseaseContext ? '未在列表中时可手动填写' : '请先选择或填写疾病'}
               />
             </Form.Item>
           </Col>
           <Col span={12}>
             <Form.Item label="主变量名称" name="variableName">
               <Input
-                disabled={!watchedDiseasePath?.length}
-                placeholder={watchedDiseasePath?.length ? undefined : '请先选择疾病'}
+                disabled={!hasDiseaseContext}
+                placeholder={hasDiseaseContext ? undefined : '请先选择或填写疾病'}
               />
             </Form.Item>
           </Col>
