@@ -11,7 +11,7 @@ class LiteratureService:
         self.pubmed_base = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
         self.europepmc_base = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
         self.doaj_base = "https://doaj.org/api/v2/search/journals"
-        self.arxiv_base = "http://export.arxiv.org/api/query"
+        self.arxiv_base = "https://export.arxiv.org/api/query"
         self.crossref_base = "https://api.crossref.org/works"
         # Simple in-memory cache: {query: {citations: [], timestamp: float}}
         self.cache = {}
@@ -91,7 +91,7 @@ class LiteratureService:
 
     async def _search_pubmed(self, query: str, max_results: int = 5) -> List[dict]:
         """Search PubMed for real academic literature"""
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             try:
                 # Search for PMIDs
                 search_params = {
@@ -109,19 +109,54 @@ class LiteratureService:
                 if not pmids:
                     return []
 
-                # Fetch summaries
+                # Fetch summaries. Prefer JSON because it is less brittle than XML
+                # across NCBI response variants; keep XML parsing as a fallback.
                 summary_params = {
                     "db": "pubmed",
                     "id": ",".join(pmids[:max_results]),
-                    "retmode": "xml"
+                    "retmode": "json"
                 }
                 summary_resp = await client.get(f"{self.pubmed_base}/esummary.fcgi", params=summary_params)
                 if summary_resp.status_code != 200:
                     return []
 
-                # Parse XML
-                root = ET.fromstring(summary_resp.text)
                 results = []
+                try:
+                    data = summary_resp.json().get("result", {})
+                    for pmid in data.get("uids", [])[:max_results]:
+                        item = data.get(pmid, {})
+                        title = item.get("title", "")
+                        authors = [
+                            author.get("name", "")
+                            for author in item.get("authors", [])
+                            if isinstance(author, dict) and author.get("name")
+                        ]
+                        source = item.get("source", "")
+                        pubdate = item.get("pubdate", "")
+                        doi = ""
+                        for article_id in item.get("articleids", []):
+                            if article_id.get("idtype") == "doi":
+                                doi = article_id.get("value", "")
+                                break
+
+                        if title:
+                            citation = self._format_citation(authors, title, source, pubdate, doi, style="apa")
+                            citation["pmid"] = pmid
+                            if pmid and not citation.get("link"):
+                                citation["link"] = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}"
+                            results.append(citation)
+                except Exception:
+                    results = []
+
+                if results:
+                    return results
+
+                summary_params["retmode"] = "xml"
+                summary_resp = await client.get(f"{self.pubmed_base}/esummary.fcgi", params=summary_params)
+                if summary_resp.status_code != 200:
+                    return []
+
+                root = ET.fromstring(summary_resp.text)
                 for doc_sum in root.findall(".//DocSum"):
                     title = ""
                     source = ""
@@ -145,8 +180,9 @@ class LiteratureService:
                         elif name == "DOI":
                             doi = item.text or ""
 
-                    if title:  # Only add if we have a title
+                    if title:
                         citation = self._format_citation(authors, title, source, pubdate, doi, style="apa")
+                        citation["pmid"] = pmid
                         if pmid and not citation.get("link"):
                             citation["link"] = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}"
                         results.append(citation)
@@ -158,7 +194,7 @@ class LiteratureService:
 
     async def _search_europepmc(self, query: str, max_results: int = 5) -> List[dict]:
         """Search Europe PMC for additional literature"""
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             try:
                 params = {
                     "query": query,
@@ -207,7 +243,7 @@ class LiteratureService:
 
     async def _search_crossref(self, query: str, max_results: int = 5) -> List[dict]:
         """Search CrossRef for DOI-registered literature"""
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             try:
                 params = {
                     "query": query,
@@ -242,7 +278,7 @@ class LiteratureService:
 
     async def _search_arxiv(self, query: str, max_results: int = 5) -> List[dict]:
         """Search arXiv for preprints (useful for CS, Physics, Math)"""
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             try:
                 # arXiv uses OAI-PMH style interface
                 search_query = f"all:{query}"
@@ -285,6 +321,8 @@ class LiteratureService:
                     if title:
                         citation = self._format_citation(authors, title, source, pubdate, doi, style="apa")
                         citation["database"] = "arXiv"
+                        if id_elem is not None and id_elem.text:
+                            citation["link"] = id_elem.text.replace("http://", "https://")
                         results.append(citation)
 
                 return results
@@ -356,11 +394,13 @@ class LiteratureService:
         priority = {"PubMed": 0, "Europe PMC": 1, "CrossRef": 2, "arXiv": 3}
         unique_citations.sort(key=lambda x: priority.get(x["database"], 4))
 
-        # Cache results
-        self.cache[cache_key] = {
-            "citations": unique_citations,
-            "timestamp": current_time
-        }
+        # Cache positive results only. Empty responses are often caused by
+        # transient upstream/API issues and should not mask later retries.
+        if unique_citations:
+            self.cache[cache_key] = {
+                "citations": unique_citations,
+                "timestamp": current_time
+            }
 
         return unique_citations[:max_results]
 
