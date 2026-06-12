@@ -25,6 +25,7 @@ import {
   UploadOutlined,
   BulbOutlined,
   FilePdfOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
 import type { ThesisProject, ThesisStep, ThesisOutlineRequest } from '../../types/thesis';
 import {
@@ -32,11 +33,13 @@ import {
   generateOutline,
   saveOutline,
   exportOutline,
+  getProjectReferences,
+  saveUploadedReferences,
 } from '../../services/thesisApi';
 import { THESIS_TYPES, LENGTH_OPTIONS, LANGUAGES, DISCIPLINES } from '../../config/constants';
 import ReferenceUpload, { type VerifiedReference } from './ReferenceUpload';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { getLiteratureDatabaseOptions } from '../../services/literatureApi';
+import { getLiteratureDatabaseOptions, searchLiterature } from '../../services/literatureApi';
 import type { LiteratureDatabaseOption } from '../../types/literature';
 
 const { Text, Paragraph } = Typography;
@@ -58,6 +61,39 @@ function findLabel<T extends { value: string; label: string }>(
   value: string,
 ): string {
   return options.find((o) => o.value === value)?.label ?? value;
+}
+
+function hasReferenceBody(ref: any): boolean {
+  return Boolean(String(ref?.raw_text || '').trim());
+}
+
+function _referenceDedupKey(ref: any): string {
+  const doi = String(ref?.doi || '').trim().toLowerCase();
+  if (doi) return `doi:${doi}`;
+  return `title:${String(ref?.title || '').trim().toLowerCase().replace(/\s+/g, ' ')}`;
+}
+
+async function confirmMissingReferenceBodies(
+  projectId: number,
+  serviceToken: string,
+  databases: string[],
+  actionName: string,
+): Promise<boolean> {
+  const data = await getProjectReferences(projectId, serviceToken, databases);
+  const refs = [...(data.uploaded || []), ...(data.retrieved || [])];
+  const missing = refs.filter((ref: any) => !hasReferenceBody(ref));
+  if (missing.length === 0) return true;
+
+  return new Promise((resolve) => {
+    Modal.confirm({
+      title: `存在 ${missing.length} 篇参考文献没有正文`,
+      content: `这些文献只有题名、摘要或元数据，${actionName}时可能无法基于原文细节进行可靠引用。建议先在参考文献列表中补充正文。是否仍然继续？`,
+      okText: '继续生成',
+      cancelText: '返回补充正文',
+      onOk: () => resolve(true),
+      onCancel: () => resolve(false),
+    });
+  });
 }
 
 function parseMarkdownOutline(markdown: string): { sections: OutlineSection[] } {
@@ -171,6 +207,7 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
   const [editText, setEditText] = useState('');
   const [referencesUploaded, setReferencesUploaded] = useState(false);
   const [verifiedRefs, setVerifiedRefs] = useState<VerifiedReference[]>([]);
+  const [referencesRefreshKey, setReferencesRefreshKey] = useState(0);
   const [styleFile, setStyleFile] = useState<File | null>(null);
   const [literatureDatabases, setLiteratureDatabases] = useState<LiteratureDatabaseOption[]>([]);
   const [selectedDatabases, setSelectedDatabases] = useState<string[]>([]);
@@ -218,6 +255,14 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
   const handleGenerateOutline = async (): Promise<void> => {
     setGenerating(true);
     try {
+      const shouldContinue = await confirmMissingReferenceBodies(
+        project.id,
+        serviceToken,
+        selectedDatabases,
+        '生成提纲',
+      );
+      if (!shouldContinue) return;
+
       const request: ThesisOutlineRequest = {
         project_id: project.id,
         token: serviceToken,
@@ -445,16 +490,19 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
         onReferencesVerified={(refs) => {
           setVerifiedRefs(refs);
           setReferencesUploaded(true);
+          setReferencesRefreshKey((key) => key + 1);
         }}
       />
 
       {/* ---- References List (uploaded + retrieved) ---- */}
       <ReferencesListCard
         projectId={project.id}
+        projectTopic={project.topic}
         serviceToken={serviceToken}
-        literatureDatabases={literatureDatabases}
         selectedDatabases={selectedDatabases}
+        literatureDatabases={literatureDatabases}
         onSelectedDatabasesChange={setSelectedDatabases}
+        refreshKey={referencesRefreshKey}
       />
 
       {/* ---- Style Reference Upload ---- */}
@@ -497,6 +545,24 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
             <Space>
               <Button
                 size="small"
+                icon={<BulbOutlined />}
+                onClick={() => {
+                  Modal.confirm({
+                    title: '重新生成提纲？',
+                    content: '重新生成会覆盖当前页面中的提纲内容，建议先保存已有提纲。',
+                    okText: '重新生成',
+                    cancelText: '取消',
+                    onOk: () => {
+                      void handleGenerateOutline();
+                    },
+                  });
+                }}
+                loading={generating}
+              >
+                重新生成
+              </Button>
+              <Button
+                size="small"
                 icon={<EditOutlined />}
                 onClick={handleStartEdit}
               >
@@ -524,7 +590,15 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
         style={{ marginBottom: 24 }}
       >
         {generating ? (
-          <LoadingSpinner tip="正在生成论文提纲，请耐心等待..." />
+          <LoadingSpinner
+            tip="正在生成论文提纲"
+            description="系统正在读取项目资料、参考文献和写作要求，生成完成后会自动替换当前提纲。"
+            steps={[
+              '整理项目主题与论文类型',
+              '检查参考文献正文完整性',
+              '生成章节结构与研究要点',
+            ]}
+          />
         ) : outlineContent ? (
           renderOutlineContent()
         ) : (
@@ -596,59 +670,249 @@ const OutlineGeneration: FC<OutlineGenerationProps> = ({
 // =========================================================================
 // ReferencesListCard — show user-uploaded + auto-retrieved references
 // =========================================================================
-import { List, Badge, Tooltip } from 'antd';
+import { List, Badge } from 'antd';
 import { LinkOutlined, UploadOutlined as UplIcon, SearchOutlined as SearchIcon } from '@ant-design/icons';
 function ReferencesListCard({
   projectId,
+  projectTopic,
   serviceToken,
-  literatureDatabases,
   selectedDatabases,
+  literatureDatabases,
   onSelectedDatabasesChange,
+  refreshKey,
 }: {
   projectId: number;
+  projectTopic: string;
   serviceToken: string;
-  literatureDatabases: LiteratureDatabaseOption[];
   selectedDatabases: string[];
-  onSelectedDatabasesChange: (value: string[]) => void;
+  literatureDatabases: LiteratureDatabaseOption[];
+  onSelectedDatabasesChange: (databases: string[]) => void;
+  refreshKey: number;
 }) {
   const [refs, setRefs] = useState<{ uploaded: any[]; retrieved: any[] }>({ uploaded: [], retrieved: [] });
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(projectTopic || '');
+  const [candidateResults, setCandidateResults] = useState<any[]>([]);
+  const [selectedCandidateKeys, setSelectedCandidateKeys] = useState<string[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [hiddenRefKeys, setHiddenRefKeys] = useState<string[]>([]);
+  const [bodyViewer, setBodyViewer] = useState<any | null>(null);
+  const [supplementRef, setSupplementRef] = useState<any | null>(null);
+  const [supplementText, setSupplementText] = useState('');
+  const [editingRef, setEditingRef] = useState<any | null>(null);
+  const [editRefDraft, setEditRefDraft] = useState<any>({});
+  const [savingBody, setSavingBody] = useState(false);
 
-  useEffect(() => {
+  const loadRefs = useCallback(() => {
     if (!projectId) return;
     setLoading(true);
-    const params = new URLSearchParams({ token: serviceToken });
-    if (selectedDatabases.length > 0) params.set('databases', selectedDatabases.join(','));
-    fetch(`/api/ai/thesis/${projectId}/references?${params.toString()}`)
-      .then(r => r.json())
-      .then(d => { setRefs({ uploaded: d.uploaded || [], retrieved: d.retrieved || [] }); })
+    getProjectReferences(projectId, serviceToken, [])
+      .then(d => { setRefs({ uploaded: d.uploaded || [], retrieved: [] }); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [projectId, serviceToken, selectedDatabases]);
+  }, [projectId, serviceToken]);
 
-  const allRefs = [
-    ...refs.uploaded.map((r: any, i: number) => ({ ...r, _source: 'uploaded', _key: `up-${i}` })),
-    ...refs.retrieved.map((r: any, i: number) => ({ ...r, _source: 'retrieved', _key: `ret-${i}` })),
-  ];
+  useEffect(() => {
+    loadRefs();
+  }, [projectId, serviceToken, refreshKey]);
+
+  useEffect(() => {
+    setSearchQuery(projectTopic || '');
+  }, [projectTopic]);
+
+  const mapSearchResultToReference = (item: any) => ({
+    title: item.title || '',
+    authors: item.authors || '',
+    year: item.year || null,
+    source: item.source || item.journal || item.database || '',
+    journal: item.journal || item.source || '',
+    database: item.database || item.source_database || '',
+    doi: item.doi || '',
+    link: item.link || item.url || (item.doi ? `https://doi.org/${item.doi}` : ''),
+    abstract_preview: item.abstract || item.abstract_preview || '',
+    formatted: item.formatted || '',
+  });
+
+  const handleSearchReferences = async (value?: string) => {
+    const query = String(value ?? searchQuery ?? '').trim();
+    if (!query) {
+      message.warning('请输入要检索的关键词');
+      return;
+    }
+    setSearching(true);
+    try {
+      const data = await searchLiterature(query, 20, selectedDatabases, serviceToken);
+      const nextResults = (data.results || [])
+        .map(mapSearchResultToReference)
+        .filter((ref: any) => _referenceDedupKey(ref) !== 'title:');
+      setCandidateResults(nextResults);
+      setSelectedCandidateKeys([]);
+      message.success(`已检索到 ${nextResults.length} 篇候选文献，请选择后入库`);
+    } catch (err: any) {
+      message.error(err?.message || '文献检索失败');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const uploadedRefs = refs.uploaded.map((r: any, i: number) => ({
+    ...r,
+    _source: r.import_source === 'literature_search' ? 'searched' : 'uploaded',
+    _key: `up-${i}`,
+  }));
+  const uploadedKeys = new Set(uploadedRefs.map((ref: any) => _referenceDedupKey(ref)));
+  const allRefs = [...uploadedRefs];
+  const visibleRefs = allRefs.filter((ref: any) => !hiddenRefKeys.includes(_referenceDedupKey(ref)));
+  const selectableCandidates = candidateResults.filter((ref: any) => !uploadedKeys.has(_referenceDedupKey(ref)));
+  const selectedCandidateRefs = selectableCandidates.filter((ref: any) => selectedCandidateKeys.includes(_referenceDedupKey(ref)));
+
+  const makeContentExcerpt = (value: string) => {
+    const text = value.replace(/\s+/g, ' ').trim();
+    if (text.length <= 1800) return text;
+    return `${text.slice(0, 900)}\n...[中间内容已省略]...\n${text.slice(-900)}`;
+  };
+
+  const cleanReferenceForSave = (ref: any, rawText: string) => {
+    const { _source, _key, ...rest } = ref;
+    return {
+      ...rest,
+      raw_text: rawText,
+      raw_text_length: rawText.length,
+      content_excerpt: makeContentExcerpt(rawText),
+    };
+  };
+
+  const handleSaveSupplement = async () => {
+    const rawText = supplementText.trim();
+    if (!supplementRef || rawText.length < 100) {
+      message.warning('正文内容太短，请至少补充 100 个字符');
+      return;
+    }
+    setSavingBody(true);
+    try {
+      await saveUploadedReferences(projectId, {
+        token: serviceToken,
+        references: [cleanReferenceForSave(supplementRef, rawText)],
+      });
+      setHiddenRefKeys((prev) => prev.filter((key) => key !== _referenceDedupKey(supplementRef)));
+      message.success('正文已补充并保存');
+      setSupplementRef(null);
+      setSupplementText('');
+      loadRefs();
+    } catch (err: any) {
+      message.error(err?.message || '保存正文失败');
+    } finally {
+      setSavingBody(false);
+    }
+  };
+
+  const handleReplaceUploadedRefs = async (nextRefs: any[]) => {
+    await saveUploadedReferences(projectId, {
+      token: serviceToken,
+      references: nextRefs,
+      replace: true,
+    });
+    loadRefs();
+  };
+
+  const handleToggleCandidate = (ref: any) => {
+    const key = _referenceDedupKey(ref);
+    setSelectedCandidateKeys((prev) => (
+      prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
+    ));
+  };
+
+  const handleAddCandidatesToLibrary = async () => {
+    if (selectedCandidateRefs.length === 0) {
+      message.warning('请先选择要入库的检索文献');
+      return;
+    }
+    setSavingBody(true);
+    try {
+      await saveUploadedReferences(projectId, {
+        token: serviceToken,
+        references: selectedCandidateRefs.map((ref: any) => ({
+          ...ref,
+          import_source: 'literature_search',
+        })),
+      });
+      message.success(`已入库 ${selectedCandidateRefs.length} 篇文献`);
+      setSelectedCandidateKeys([]);
+      setCandidateResults((prev) => prev.filter((ref: any) => !selectedCandidateKeys.includes(_referenceDedupKey(ref))));
+      loadRefs();
+    } catch (err: any) {
+      message.error(err?.message || '文献入库失败');
+    } finally {
+      setSavingBody(false);
+    }
+  };
+
+  const handleSaveReferenceEdit = async () => {
+    if (!editingRef) return;
+    setSavingBody(true);
+    try {
+      const key = _referenceDedupKey(editingRef);
+      if (editingRef._source === 'uploaded' || editingRef._source === 'searched') {
+        const nextUploaded = refs.uploaded.map((ref: any) => (
+          _referenceDedupKey(ref) === key ? { ...ref, ...editRefDraft } : ref
+        ));
+        await handleReplaceUploadedRefs(nextUploaded);
+      } else {
+        const { _source, _key, ...savedRef } = editingRef;
+        await saveUploadedReferences(projectId, {
+          token: serviceToken,
+          references: [{ ...savedRef, ...editRefDraft }],
+        });
+        loadRefs();
+      }
+      setHiddenRefKeys((prev) => prev.filter((item) => item !== key));
+      message.success('文献已更新');
+      setEditingRef(null);
+      setEditRefDraft({});
+    } catch (err: any) {
+      message.error(err?.message || '更新文献失败');
+    } finally {
+      setSavingBody(false);
+    }
+  };
+
+  const handleDeleteReference = async (ref: any) => {
+    setSavingBody(true);
+    try {
+      const key = _referenceDedupKey(ref);
+      if (ref._source === 'uploaded' || ref._source === 'searched') {
+        const nextUploaded = refs.uploaded.filter((item: any) => _referenceDedupKey(item) !== key);
+        await handleReplaceUploadedRefs(nextUploaded);
+      } else {
+        setHiddenRefKeys((prev) => Array.from(new Set([...prev, key])));
+      }
+      if (expandedKey === ref._key) setExpandedKey(null);
+      message.success('文献已删除');
+    } catch (err: any) {
+      message.error(err?.message || '删除文献失败');
+    } finally {
+      setSavingBody(false);
+    }
+  };
+
+  const openReferenceEdit = (ref: any) => {
+    setEditingRef(ref);
+    setEditRefDraft({
+      title: ref.title || '',
+      authors: Array.isArray(ref.authors) ? ref.authors.join(', ') : (ref.authors || ''),
+      year: ref.year || '',
+      source: ref.source || '',
+      journal: ref.journal || '',
+      doi: ref.doi || '',
+      abstract_preview: ref.abstract_preview || '',
+    });
+  };
 
   const title = (
-    <Space direction="vertical" size={8} style={{ width: '100%' }}>
-      <Space>参考文献 <Tag>{allRefs.length} 篇</Tag></Space>
-      <Select
-        mode="multiple"
-        allowClear
-        size="small"
-        value={selectedDatabases}
-        onChange={onSelectedDatabasesChange}
-        options={literatureDatabases.map(item => ({
-          label: item.name,
-          value: item.key,
-          title: item.description || item.name,
-        }))}
-        placeholder="选择检索文献库"
-        style={{ minWidth: 280 }}
-      />
+    <Space>
+      <span>参考文献</span>
+      <Tag>{visibleRefs.length} 篇</Tag>
     </Space>
   );
 
@@ -661,15 +925,134 @@ function ReferencesListCard({
       style={{ marginBottom: 16 }}
       styles={{ body: { padding: 0 } }}
     >
-      {allRefs.length === 0 && (
+      <div
+        style={{
+          padding: '16px 20px',
+          borderBottom: '1px solid #f0f0f0',
+          background: '#fff',
+        }}
+      >
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Text strong>文献检索</Text>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) minmax(260px, 420px) auto', gap: 12, alignItems: 'end' }}>
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>检索关键词</Text>
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onPressEnter={() => handleSearchReferences()}
+                placeholder="输入题名、关键词或研究方向"
+                allowClear
+              />
+            </Space>
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>来源库</Text>
+              <Select
+                mode="multiple"
+                allowClear
+                maxTagCount="responsive"
+                value={selectedDatabases}
+                onChange={onSelectedDatabasesChange}
+                placeholder="选择要检索的文献库"
+                style={{ width: '100%' }}
+                optionFilterProp="label"
+                options={literatureDatabases.map((db) => ({
+                  label: db.description ? `${db.name} - ${db.description}` : db.name,
+                  value: db.key,
+                }))}
+              />
+            </Space>
+            <Button
+              type="primary"
+              icon={<SearchIcon />}
+              loading={searching}
+              onClick={() => handleSearchReferences()}
+            >
+              检索
+            </Button>
+          </div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            选择来源库不会自动检索；点击“检索”后先进入候选结果，勾选并入库后才会加入下方参考文献列表。
+          </Text>
+        </Space>
+      </div>
+      {candidateResults.length > 0 && (
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid #f0f0f0', background: '#fafafa' }}>
+          <Space direction="vertical" size={10} style={{ width: '100%' }}>
+            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+              <Space>
+                <Text strong>候选结果</Text>
+                <Tag>{selectableCandidates.length} 篇可入库</Tag>
+                {selectedCandidateRefs.length > 0 && <Tag color="blue">已选 {selectedCandidateRefs.length} 篇</Tag>}
+              </Space>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                disabled={selectedCandidateRefs.length === 0}
+                loading={savingBody}
+                onClick={handleAddCandidatesToLibrary}
+              >
+                入库
+              </Button>
+            </Space>
+            <List
+              size="small"
+              dataSource={candidateResults}
+              renderItem={(ref: any) => {
+                const key = _referenceDedupKey(ref);
+                const selected = selectedCandidateKeys.includes(key);
+                const alreadySaved = uploadedKeys.has(key);
+                return (
+                  <div
+                    key={key}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 0',
+                      borderTop: '1px solid #f0f0f0',
+                    }}
+                  >
+                    <Button
+                      size="small"
+                      type={selected ? 'primary' : 'default'}
+                      disabled={alreadySaved}
+                      onClick={() => handleToggleCandidate(ref)}
+                    >
+                      {alreadySaved ? '已入库' : selected ? '已选择' : '选择'}
+                    </Button>
+                    <Text style={{ flex: 1, fontSize: 13 }} ellipsis={{ tooltip: ref.title }}>
+                      {ref.title}
+                    </Text>
+                    {ref.year && <Text type="secondary" style={{ width: 56 }}>{ref.year}</Text>}
+                    <Tag>{ref.database || ref.source || '检索'}</Tag>
+                    {ref.doi && (
+                      <a href={`https://doi.org/${ref.doi}`} target="_blank" rel="noreferrer">
+                        <LinkOutlined />
+                      </a>
+                    )}
+                  </div>
+                );
+              }}
+            />
+          </Space>
+        </div>
+      )}
+      {visibleRefs.length > 0 && (
+        <div style={{ padding: '10px 20px', borderBottom: '1px solid #f0f0f0', background: '#fff' }}>
+          <Text strong>已入库参考文献</Text>
+        </div>
+      )}
+      {visibleRefs.length === 0 && (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无参考文献" style={{ padding: 16 }} />
       )}
       <List
         size="small"
-        dataSource={allRefs}
+        dataSource={visibleRefs}
         renderItem={(ref: any) => {
           const isExpanded = expandedKey === ref._key;
           const isUploaded = ref._source === 'uploaded';
+          const isSearched = ref._source === 'searched';
           return (
             <div key={ref._key} style={{ borderBottom: '1px solid #f0f0f0' }}>
               {/* Title row — always visible */}
@@ -681,15 +1064,15 @@ function ReferencesListCard({
                   transition: 'background 0.2s',
                 }}
               >
-                <Badge status={isUploaded ? 'processing' : 'default'}
-                  title={isUploaded ? '用户上传' : '系统检索'} />
+                <Badge status={isUploaded ? 'processing' : isSearched ? 'success' : 'default'}
+                  title={isUploaded ? '用户上传' : isSearched ? '检索入库' : '系统检索'} />
                 <Text style={{ flex: 1, fontSize: 13 }}
                   ellipsis={{ tooltip: ref.title || ref.formatted }}>
                   {ref.title || (ref.formatted || '').substring(0, 80) + '...'}
                 </Text>
-                {isUploaded
-                  ? <Tooltip title="用户上传"><UplIcon style={{ color: '#1890ff', fontSize: 12 }} /></Tooltip>
-                  : <Tooltip title="系统检索"><SearchIcon style={{ color: '#999', fontSize: 12 }} /></Tooltip>}
+                <Tag color={isUploaded ? 'blue' : isSearched ? 'green' : 'default'} icon={isUploaded ? <UplIcon /> : <SearchIcon />}>
+                  {isUploaded ? '上传' : isSearched ? '检索入库' : '检索'}
+                </Tag>
                 {ref.doi && (
                   <a href={`https://doi.org/${ref.doi}`} target="_blank" rel="noreferrer"
                     onClick={e => e.stopPropagation()}
@@ -700,10 +1083,69 @@ function ReferencesListCard({
                     onClick={e => e.stopPropagation()}
                     style={{ fontSize: 12 }}><LinkOutlined /></a>
                 )}
+                <Button
+                  size="small"
+                  type="link"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedKey(isExpanded ? null : ref._key);
+                  }}
+                >
+                  详情
+                </Button>
+                <Button
+                  size="small"
+                  type="link"
+                  danger
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    Modal.confirm({
+                      title: '删除这篇文献？',
+                      content: isUploaded || isSearched
+                        ? '删除后该文献不会再参与提纲和全文生成。'
+                        : '该检索文献会从当前参考文献列表中移除。',
+                      okText: '删除',
+                      cancelText: '取消',
+                      okButtonProps: { danger: true },
+                      onOk: () => handleDeleteReference(ref),
+                    });
+                  }}
+                >
+                  删除
+                </Button>
               </div>
               {/* Expanded detail */}
               {isExpanded && (
                 <div style={{ padding: '12px 16px 16px 40px', background: '#fafafa' }}>
+                  <Space style={{ marginBottom: 12 }} wrap>
+                    <Button
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={() => openReferenceEdit(ref)}
+                    >
+                      编辑信息
+                    </Button>
+                    {hasReferenceBody(ref) ? (
+                      <Button
+                        size="small"
+                        onClick={() => setBodyViewer(ref)}
+                      >
+                        查看正文
+                      </Button>
+                    ) : (
+                      <Button
+                        size="small"
+                        type="primary"
+                        ghost
+                        onClick={() => {
+                          setSupplementRef(ref);
+                          setSupplementText('');
+                        }}
+                      >
+                        补充正文
+                      </Button>
+                    )}
+                  </Space>
                   <Descriptions column={1} size="small">
                     {ref.authors && (
                       <Descriptions.Item label="作者">
@@ -731,6 +1173,18 @@ function ReferencesListCard({
                     {ref.similarity_score !== undefined && (
                       <Descriptions.Item label="匹配度">{ref.similarity_score}</Descriptions.Item>
                     )}
+                    {ref.raw_text_length && (
+                      <Descriptions.Item label="已存正文">
+                        {Number(ref.raw_text_length).toLocaleString()} 字符
+                      </Descriptions.Item>
+                    )}
+                    {ref.content_excerpt && (
+                      <Descriptions.Item label="正文摘录">
+                        <Paragraph style={{ fontSize: 12, margin: 0 }} ellipsis={{ rows: 4 }}>
+                          {ref.content_excerpt}
+                        </Paragraph>
+                      </Descriptions.Item>
+                    )}
                     {ref.formatted && (
                       <Descriptions.Item label="格式化引用">
                         <Text style={{ fontSize: 12 }}>{ref.formatted}</Text>
@@ -743,6 +1197,95 @@ function ReferencesListCard({
           );
         }}
       />
+      <Modal
+        title={bodyViewer?.title || '文献正文'}
+        open={Boolean(bodyViewer)}
+        onCancel={() => setBodyViewer(null)}
+        footer={<Button onClick={() => setBodyViewer(null)}>关闭</Button>}
+        width="80%"
+      >
+        <Input.TextArea
+          value={bodyViewer?.raw_text || ''}
+          readOnly
+          rows={24}
+          style={{ fontFamily: 'monospace', fontSize: 12 }}
+        />
+      </Modal>
+      <Modal
+        title={`补充正文：${supplementRef?.title || ''}`}
+        open={Boolean(supplementRef)}
+        onCancel={() => {
+          setSupplementRef(null);
+          setSupplementText('');
+        }}
+        onOk={handleSaveSupplement}
+        okText="保存正文"
+        cancelText="取消"
+        confirmLoading={savingBody}
+        width="80%"
+      >
+        <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+          请粘贴该文献的正文、全文摘录或可引用内容。保存后，生成提纲和正文时会优先基于这里的正文内容引用。
+        </Text>
+        <Input.TextArea
+          value={supplementText}
+          onChange={(e) => setSupplementText(e.target.value)}
+          rows={22}
+          placeholder="粘贴文献正文..."
+        />
+      </Modal>
+      <Modal
+        title="编辑文献信息"
+        open={Boolean(editingRef)}
+        onCancel={() => {
+          setEditingRef(null);
+          setEditRefDraft({});
+        }}
+        onOk={handleSaveReferenceEdit}
+        okText="保存"
+        cancelText="取消"
+        confirmLoading={savingBody}
+        width={720}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size={10}>
+          <Input
+            addonBefore="标题"
+            value={editRefDraft.title}
+            onChange={(e) => setEditRefDraft((prev: any) => ({ ...prev, title: e.target.value }))}
+          />
+          <Input
+            addonBefore="作者"
+            value={Array.isArray(editRefDraft.authors) ? editRefDraft.authors.join(', ') : editRefDraft.authors}
+            onChange={(e) => setEditRefDraft((prev: any) => ({ ...prev, authors: e.target.value.split(',').map((item) => item.trim()).filter(Boolean) }))}
+          />
+          <Input
+            addonBefore="年份"
+            value={editRefDraft.year}
+            onChange={(e) => setEditRefDraft((prev: any) => ({ ...prev, year: e.target.value }))}
+          />
+          <Input
+            addonBefore="来源"
+            value={editRefDraft.source}
+            onChange={(e) => setEditRefDraft((prev: any) => ({ ...prev, source: e.target.value }))}
+          />
+          <Input
+            addonBefore="期刊"
+            value={editRefDraft.journal}
+            onChange={(e) => setEditRefDraft((prev: any) => ({ ...prev, journal: e.target.value }))}
+          />
+          <Input
+            addonBefore="DOI"
+            value={editRefDraft.doi}
+            onChange={(e) => setEditRefDraft((prev: any) => ({ ...prev, doi: e.target.value }))}
+          />
+          <Input.TextArea
+            rows={5}
+            value={editRefDraft.abstract_preview}
+            onChange={(e) => setEditRefDraft((prev: any) => ({ ...prev, abstract_preview: e.target.value }))}
+            placeholder="摘要"
+          />
+        </Space>
+      </Modal>
     </Card>
   );
 }

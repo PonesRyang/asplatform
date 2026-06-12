@@ -77,6 +77,21 @@ export async function uploadReferences(formData: FormData): Promise<any> {
   return response.data
 }
 
+export async function getProjectReferences(projectId: number, token: string, databases?: string[]): Promise<any> {
+  const response = await api.get<any>(`/api/ai/thesis/${projectId}/references`, {
+    params: {
+      token,
+      ...(databases && databases.length > 0 ? { databases: databases.join(',') } : {}),
+    },
+  })
+  return response.data
+}
+
+export async function saveUploadedReferences(projectId: number, data: { token: string; references: any[]; replace?: boolean }): Promise<any> {
+  const response = await api.post<any>(`/api/ai/thesis/${projectId}/references/uploaded`, data)
+  return response.data
+}
+
 export async function validateReferences(projectId: number, token?: string): Promise<{ project_id: number; project_title: string; validation: unknown }> {
   const response = await api.post<{ project_id: number; project_title: string; validation: unknown }>(`/api/ai/thesis/${projectId}/validate-references`, null, {
     params: { token },

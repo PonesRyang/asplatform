@@ -119,7 +119,7 @@ const WritingSidebar: FC<WritingSidebarProps> = ({
           block
           onClick={onNew}
         >
-          新建项目
+          AI 写作首页
         </Button>
       </div>
 

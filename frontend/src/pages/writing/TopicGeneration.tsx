@@ -2,7 +2,7 @@
 import { useState, type FC } from 'react';
 import {
   Card, Form, Select, Input, InputNumber, Button, Typography, Space, Row, Col,
-  Spin, Empty, message, Modal, List, Tag, Progress, Collapse,
+  Empty, message, Modal, List, Tag, Progress, Collapse,
 } from 'antd';
 import {
   BulbOutlined, ReloadOutlined, CheckCircleOutlined,
@@ -15,9 +15,11 @@ import {
   analyzeTopic,
   refineTopic,
   createAndOutline,
+  createThesisProject,
 } from '../../services/topicApi';
 import { DISCIPLINES, THESIS_TYPES, LENGTH_OPTIONS, LANGUAGES } from '../../config/constants';
 import type { TopicGenerationRequest, TopicAnalysisRequest, TopicRefineRequest, ThesisCreateRequest, ThesisProject } from '../../types/thesis';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -106,15 +108,15 @@ const TopicGeneration: FC<TopicGenerationProps> = ({ serviceToken, onTopicSelect
     if (!title) { message.warning('请输入论文题目'); return; }
     setQuickCreating(true);
     try {
-      const project: any = await createAndOutline({
+      const project: any = await createThesisProject({
         token: serviceToken,
-        topic_title: title,
+        topic: title,
         discipline: quickForm.getFieldValue('discipline') || '',
         language: quickForm.getFieldValue('language') || 'zh',
         length: quickForm.getFieldValue('length') || 'Standard (5000 words)',
         thesis_type: quickForm.getFieldValue('thesis_type') || 'Original Research',
       });
-      message.success('文章已创建，开始生成提纲');
+      message.success('论文项目已创建');
       onTopicSelected(project);
     } catch (err: any) {
       message.error(err?.message || '创建失败');
@@ -237,15 +239,15 @@ const TopicGeneration: FC<TopicGenerationProps> = ({ serviceToken, onTopicSelect
 
       const request: any = {
         token: serviceToken,
-        topic_title: selectedTopic,
+        topic: selectedTopic,
         discipline: values.discipline,
         thesis_type: values.thesis_type,
         language: values.language,
         length: values.length,
       };
 
-      const project = await createAndOutline(request);
-      message.success('项目已创建，开始生成提纲...');
+      const project = await createThesisProject(request);
+      message.success('论文项目已创建');
       setCreateModalOpen(false);
       onTopicSelected(project);
     } catch (err) {
@@ -378,7 +380,7 @@ const TopicGeneration: FC<TopicGenerationProps> = ({ serviceToken, onTopicSelect
         title={<Space><ThunderboltOutlined style={{ color: '#52c41a' }} /><span>快速开始</span></Space>}
         style={{ marginBottom: 24, border: '1px solid #b7eb8f' }}
       >
-        <Form form={quickForm} layout="vertical"
+        <Form form={quickForm} layout="vertical" disabled={quickCreating}
           initialValues={{ language: 'zh', length: 'Standard (5000 words)', thesis_type: 'Original Research' }}>
           <Row gutter={16}>
             <Col xs={24} sm={12}>
@@ -412,10 +414,31 @@ const TopicGeneration: FC<TopicGenerationProps> = ({ serviceToken, onTopicSelect
             <Col xs={24} sm={8} style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 24 }}>
               <Button type="primary" size="large" icon={<ThunderboltOutlined />}
                 onClick={handleQuickStart} loading={quickCreating} block>
-                直接生成
+                直接创建项目
               </Button>
             </Col>
           </Row>
+          {quickCreating && (
+            <div
+              style={{
+                marginTop: 4,
+                padding: '18px 20px',
+                border: '1px solid #d9f7be',
+                background: '#f6ffed',
+                borderRadius: 8,
+              }}
+            >
+              <LoadingSpinner
+                tip="正在创建论文项目"
+                description="系统正在保存论文题目和写作参数，完成后会进入项目页面。"
+                steps={[
+                  '保存论文题目与写作参数',
+                  '创建项目记录',
+                  '进入参考文献与提纲生成流程',
+                ]}
+              />
+            </div>
+          )}
         </Form>
       </Card>
 
@@ -507,9 +530,15 @@ const TopicGeneration: FC<TopicGenerationProps> = ({ serviceToken, onTopicSelect
 
       {/* ---- Results ---- */}
       {generating && (
-        <div style={{ textAlign: 'center', padding: '60px 0' }}>
-          <Spin size="large" tip="正在分析学科前沿，生成选题建议..." />
-        </div>
+        <LoadingSpinner
+          tip="正在生成选题建议"
+          description="系统正在结合学科方向、关键词和写作类型生成候选选题。"
+          steps={[
+            '解析学科和论文类型',
+            '组织关键词与研究方向',
+            '生成可选题目和可行性说明',
+          ]}
+        />
       )}
 
       {!generating && topics.length > 0 && (
@@ -662,7 +691,7 @@ const TopicGeneration: FC<TopicGenerationProps> = ({ serviceToken, onTopicSelect
               loading={creatingProject}
               onClick={handleCreateProject}
             >
-              创建项目并生成提纲
+              创建项目
             </Button>
           </Space>
         }

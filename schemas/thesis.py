@@ -72,6 +72,12 @@ class ReferenceUploadResponse(BaseModel):
     failed: List[dict]    # files that could not be verified
 
 
+class ThesisReferenceSaveRequest(BaseModel):
+    token: Optional[str] = None
+    references: List[dict]
+    replace: bool = False
+
+
 class ThesisRefineRequest(BaseModel):
     project_id: int
     text: str

@@ -1,14 +1,14 @@
 // @ts-nocheck
 import { useState, useEffect, useCallback, useRef, type FC } from 'react';
 import {
-  Card, Button, Typography, Space, Tag, message, Spin, Empty, Select, Input, InputNumber,
+  Card, Button, Typography, Space, Tag, message, Spin, Empty, Select, Input, InputNumber, Modal,
 } from 'antd';
 import {
   FileTextOutlined, SaveOutlined, DownloadOutlined,
   ArrowLeftOutlined, BulbOutlined, SendOutlined, CopyOutlined, ClearOutlined,
 } from '@ant-design/icons';
 import type { ThesisProject, ThesisStep, ThesisFullTextRequest } from '../../types/thesis';
-import { getProjectSteps, generateFulltext, saveFulltext, exportThesis } from '../../services/thesisApi';
+import { getProjectSteps, generateFulltext, saveFulltext, exportThesis, getProjectReferences } from '../../services/thesisApi';
 import { processText } from '../../services/aiApi';
 import { useServiceToken } from '../../hooks/useServiceToken';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -17,6 +17,32 @@ import type { LiteratureDatabaseOption } from '../../types/literature';
 
 const { Text, Title, Paragraph } = Typography;
 const { TextArea } = Input;
+
+function hasReferenceBody(ref: any): boolean {
+  return Boolean(String(ref?.raw_text || '').trim());
+}
+
+async function confirmMissingReferenceBodies(
+  projectId: number,
+  serviceToken: string,
+  databases: string[],
+): Promise<boolean> {
+  const data = await getProjectReferences(projectId, serviceToken, databases);
+  const refs = [...(data.uploaded || []), ...(data.retrieved || [])];
+  const missing = refs.filter((ref: any) => !hasReferenceBody(ref));
+  if (missing.length === 0) return true;
+
+  return new Promise((resolve) => {
+    Modal.confirm({
+      title: `存在 ${missing.length} 篇参考文献没有正文`,
+      content: '这些文献只有题名、摘要或元数据，生成正文时可能无法基于原文细节进行可靠引用。建议先返回参考文献列表补充正文。是否仍然继续？',
+      okText: '继续生成',
+      cancelText: '返回补充正文',
+      onOk: () => resolve(true),
+      onCancel: () => resolve(false),
+    });
+  });
+}
 
 // ── AI Tool definitions (same as AITools page) ──
 const AI_TOOLS = [
@@ -126,6 +152,9 @@ const FullTextGeneration: FC<Props> = ({ project, outline, serviceToken, onBack 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
+      const shouldContinue = await confirmMissingReferenceBodies(project.id, serviceToken, selectedDatabases);
+      if (!shouldContinue) return;
+
       const result = await generateFulltext({ project_id: project.id, token: serviceToken, outline, references: [], databases: selectedDatabases } as any);
       setFullText(result.full_text || result.fulltext);
       message.success('全文生成成功！');
@@ -283,25 +312,28 @@ const FullTextGeneration: FC<Props> = ({ project, outline, serviceToken, onBack 
             <Text strong>{project.title}</Text>
           </Space>
           <Space>
-            <Select
-              mode="multiple"
-              allowClear
-              size="small"
-              value={selectedDatabases}
-              onChange={setSelectedDatabases}
-              options={literatureDatabases.map(item => ({
-                label: item.name,
-                value: item.key,
-                title: item.description || item.name,
-              }))}
-              placeholder="选择文献库"
-              style={{ minWidth: 260 }}
-            />
             {!fullText && !generating && (
-              <Button type="primary" icon={<BulbOutlined />} onClick={handleGenerate} loading={generating} disabled={selectedDatabases.length === 0}>生成全文</Button>
+              <Button type="primary" icon={<BulbOutlined />} onClick={handleGenerate} loading={generating}>生成全文</Button>
             )}
             {fullText && (
               <>
+                <Button
+                  icon={<BulbOutlined />}
+                  onClick={() => {
+                    Modal.confirm({
+                      title: '重新生成全文？',
+                      content: '重新生成会覆盖当前页面中的全文内容，建议先保存或导出已有全文。',
+                      okText: '重新生成',
+                      cancelText: '取消',
+                      onOk: () => {
+                        void handleGenerate();
+                      },
+                    });
+                  }}
+                  loading={generating}
+                >
+                  重新生成
+                </Button>
                 <Button icon={<SaveOutlined />} onClick={handleSave} loading={saving}>保存</Button>
                 <Button icon={<DownloadOutlined />} onClick={handleExport} loading={exporting}>导出 Word</Button>
               </>
@@ -311,7 +343,15 @@ const FullTextGeneration: FC<Props> = ({ project, outline, serviceToken, onBack 
 
         {/* Content */}
         {generating ? (
-          <LoadingSpinner tip="正在生成全文，请耐心等待..." />
+          <LoadingSpinner
+            tip="正在生成论文全文"
+            description="系统正在根据提纲、项目设置和可用文献正文组织内容。生成时间会随篇幅和参考文献数量变化。"
+            steps={[
+              '读取提纲与写作规范',
+              '整合上传文献正文和检索文献',
+              '生成正文、引用和参考文献列表',
+            ]}
+          />
         ) : fullText ? (
           <div ref={contentRef} style={{ whiteSpace: 'pre-wrap', lineHeight: 1.9, fontSize: 14, background: '#fff', padding: 24, borderRadius: 8, border: '1px solid #f0f0f0', minHeight: 400 }}>
             {fullText}

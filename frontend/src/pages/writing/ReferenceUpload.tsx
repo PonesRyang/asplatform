@@ -18,7 +18,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import type { UploadFile, RcFile } from 'antd/es/upload/interface';
-import { uploadReferences } from '../../services/thesisApi';
+import { saveUploadedReferences, uploadReferences } from '../../services/thesisApi';
 
 const { Dragger } = Upload;
 const { Text, Title } = Typography;
@@ -59,6 +59,7 @@ const ReferenceUpload: FC<ReferenceUploadProps> = ({
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const rawFilesRef = useRef<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [verifiedRefs, setVerifiedRefs] = useState<VerifiedReference[]>([]);
   const [failedRefs, setFailedRefs] = useState<FailedReference[]>([]);
@@ -126,8 +127,26 @@ const ReferenceUpload: FC<ReferenceUploadProps> = ({
     }
   };
 
-  const handleConfirm = (): void => {
-    onReferencesVerified(verifiedRefs);
+  const handleConfirm = async (): Promise<void> => {
+    if (verifiedRefs.length === 0) {
+      message.warning('没有可添加的已验证文献');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result = await saveUploadedReferences(projectId, {
+        token: serviceToken,
+        references: verifiedRefs,
+      });
+      onReferencesVerified(result.saved || verifiedRefs);
+      message.success(`已添加 ${result.added_count ?? verifiedRefs.length} 篇文献到项目`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '添加文献失败，请重试';
+      message.error(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleBeforeUpload = (file: RcFile): boolean => {
@@ -243,6 +262,11 @@ const ReferenceUpload: FC<ReferenceUploadProps> = ({
                               DOI：{ref.doi}
                             </Text>
                           )}
+                          {ref.raw_text_length && (
+                            <Text type="secondary">
+                              已提取正文：{ref.raw_text_length.toLocaleString()} 字符
+                            </Text>
+                          )}
                         </Space>
                       }
                     />
@@ -294,13 +318,16 @@ const ReferenceUpload: FC<ReferenceUploadProps> = ({
                   setVerifiedRefs([]);
                   setFailedRefs([]);
                   setUploadProgress(0);
+                  rawFilesRef.current = [];
                 }}
+                disabled={saving}
               >
                 重新上传
               </Button>
               <Button
                 type="primary"
                 onClick={handleConfirm}
+                loading={saving}
                 disabled={verifiedRefs.length === 0}
               >
                 确认添加 ({verifiedRefs.length} 篇)

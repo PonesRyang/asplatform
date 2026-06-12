@@ -15,7 +15,7 @@ class ReferenceVerifier:
             from pypdf import PdfReader
             reader = PdfReader(BytesIO(file_bytes))
             text = ""
-            for page in reader.pages[:5]:  # 只读前5页（标题、作者、摘要通常在前面）
+            for page in reader.pages:
                 text += page.extract_text() or ""
             return text
         except Exception as e:
@@ -397,6 +397,27 @@ class ReferenceVerifier:
         Returns a dict with {'match': bool, 'score': float}
         Only exact or near-exact matches should pass.
         """
+        def normalize_pdf_title(value: str) -> str:
+            value = value or ""
+            # PDF extraction often emits typographic ligatures, which break word matching.
+            ligatures = {
+                "ﬁ": "fi",
+                "ﬂ": "fl",
+                "ﬀ": "ff",
+                "ﬃ": "ffi",
+                "ﬄ": "ffl",
+            }
+            for source, replacement in ligatures.items():
+                value = value.replace(source, replacement)
+            value = value.lower()
+            value = re.sub(r"[^a-z0-9一-鿿]+", " ", value)
+            # Chemical formulae are often extracted as "Co 3O4" while CrossRef stores "Co3O4".
+            value = re.sub(r"\b([a-z]{1,3})\s+(\d+[a-z]*\d*)\b", r"\1\2", value)
+            return re.sub(r"\s+", " ", value).strip()
+
+        title = normalize_pdf_title(title)
+        api_title = normalize_pdf_title(api_title)
+
         has_chinese = bool(re.search(r'[一-鿿]', title))
         has_chinese_api = bool(re.search(r'[一-鿿]', api_title))
 
@@ -435,6 +456,170 @@ class ReferenceVerifier:
             return {'match': score >= 0.90, 'score': score}
 
     @staticmethod
+    def _crossref_item_to_verified_result(item: dict, similarity_score: float) -> dict:
+        api_title = " ".join(item.get("title", []))
+        pub_date = ""
+        if "published-print" in item and "date-parts" in item["published-print"]:
+            parts = item["published-print"]["date-parts"][0]
+            pub_date = "-".join(str(p) for p in parts if p)
+        elif "published-online" in item and "date-parts" in item["published-online"]:
+            parts = item["published-online"]["date-parts"][0]
+            pub_date = "-".join(str(p) for p in parts if p)
+
+        year = pub_date.split("-")[0] if pub_date else "n.d."
+        api_authors = []
+        for author in item.get("author", [])[:10]:
+            parts = []
+            if "given" in author:
+                parts.append(author["given"])
+            if "family" in author:
+                parts.append(author["family"])
+            if parts:
+                api_authors.append(" ".join(parts))
+
+        return {
+            "title": api_title,
+            "authors": api_authors,
+            "doi": item.get("DOI", ""),
+            "year": year,
+            "source": item.get("container-title", [""])[0] if item.get("container-title") else "",
+            "verified": True,
+            "database": "CrossRef",
+            "similarity_score": round(similarity_score, 3)
+        }
+
+    @staticmethod
+    def _best_title_similarity(original_title: str, titles: List[str]) -> dict:
+        best_title = ""
+        best_score = 0.0
+        for api_title in titles:
+            if not api_title:
+                continue
+            sim = ReferenceVerifier._title_similarity_match(original_title, api_title)
+            if sim["score"] > best_score:
+                best_score = sim["score"]
+                best_title = api_title
+        return {"title": best_title, "score": best_score, "match": best_score >= 0.90}
+
+    @staticmethod
+    def _format_similarity_reason(database: str, best: dict) -> str:
+        if not best.get("title"):
+            return f"{database}: 查到结果，但结果中没有可比对标题"
+        return (
+            f"{database}: 最佳匹配标题相似度 {best.get('score', 0):.3f}，低于 0.900；"
+            f"最佳匹配《{best.get('title', '')[:120]}》"
+        )
+
+    @staticmethod
+    async def verify_paper_with_diagnostics(title: str, doi: str = "") -> tuple[Optional[dict], List[str]]:
+        """Verify a paper and return human-readable diagnostics for failed attempts."""
+        diagnostics = []
+
+        if not title or len(title) < 5:
+            return None, ["未提取到有效论文标题，无法进入数据库验证"]
+
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            if doi:
+                try:
+                    resp = await client.get(f"https://api.crossref.org/works/{doi}")
+                    if resp.status_code == 200:
+                        item = resp.json().get("message", {})
+                        api_title = " ".join(item.get("title", []))
+                        if api_title:
+                            sim = ReferenceVerifier._title_similarity_match(title, api_title)
+                            if sim["match"]:
+                                return ReferenceVerifier._crossref_item_to_verified_result(item, sim["score"]), diagnostics
+                            diagnostics.append(ReferenceVerifier._format_similarity_reason("CrossRef DOI", {"title": api_title, "score": sim["score"]}))
+                        else:
+                            diagnostics.append("CrossRef DOI: DOI 命中，但返回记录缺少标题")
+                    elif resp.status_code == 404:
+                        diagnostics.append(f"CrossRef DOI: 未检索到 DOI {doi}")
+                    else:
+                        diagnostics.append(f"CrossRef DOI: 接口返回 HTTP {resp.status_code}")
+                except Exception as e:
+                    diagnostics.append(f"CrossRef DOI: 接口调用失败（{str(e)}）")
+            else:
+                diagnostics.append("CrossRef DOI: 未从文件中提取到 DOI，跳过 DOI 精确验证")
+
+            try:
+                resp = await client.get(
+                    "https://api.crossref.org/works",
+                    params={
+                        "query.bibliographic": title,
+                        "rows": 3,
+                        "select": "title,author,DOI,published-print,published-online,container-title"
+                    }
+                )
+                if resp.status_code == 200:
+                    items = resp.json().get("message", {}).get("items", [])
+                    if not items:
+                        diagnostics.append("CrossRef 标题检索: 未检索到候选论文")
+                    else:
+                        best_item = None
+                        best_score = 0.0
+                        for item in items:
+                            api_title = " ".join(item.get("title", []))
+                            sim = ReferenceVerifier._title_similarity_match(title, api_title)
+                            if sim["score"] > best_score:
+                                best_score = sim["score"]
+                                best_item = item
+                        if best_item and best_score >= 0.90:
+                            return ReferenceVerifier._crossref_item_to_verified_result(best_item, best_score), diagnostics
+                        best_title = " ".join(best_item.get("title", [])) if best_item else ""
+                        diagnostics.append(ReferenceVerifier._format_similarity_reason("CrossRef 标题检索", {"title": best_title, "score": best_score}))
+                else:
+                    diagnostics.append(f"CrossRef 标题检索: 接口返回 HTTP {resp.status_code}")
+            except Exception as e:
+                diagnostics.append(f"CrossRef 标题检索: 接口调用失败（{str(e)}）")
+
+            try:
+                params = {"query": title, "format": "json", "resultType": "core", "pageSize": 5}
+                resp = await client.get(
+                    "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+                    params=params
+                )
+                if resp.status_code == 200:
+                    results = resp.json().get("resultList", {}).get("result", [])
+                    if not results:
+                        diagnostics.append("Europe PMC: 未检索到候选论文")
+                    else:
+                        titles = [item.get("title", "") for item in results]
+                        best = ReferenceVerifier._best_title_similarity(title, titles)
+                        if best["match"]:
+                            verified = await ReferenceVerifier.verify_paper_europepmc(title)
+                            if verified:
+                                return verified, diagnostics
+                        diagnostics.append(ReferenceVerifier._format_similarity_reason("Europe PMC", best))
+                else:
+                    diagnostics.append(f"Europe PMC: 接口返回 HTTP {resp.status_code}")
+            except Exception as e:
+                diagnostics.append(f"Europe PMC: 接口调用失败（{str(e)}）")
+
+            try:
+                query_title = title.replace(' ', '+').replace('&', '%26')
+                url = f"https://export.arxiv.org/api/query?search_query=ti:{query_title}&max_results=1"
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    entry_match = re.search(r'<entry>(.*?)</entry>', resp.text, re.DOTALL)
+                    if not entry_match:
+                        diagnostics.append("arXiv: 未检索到候选论文")
+                    else:
+                        title_match = re.search(r'<title[^>]*>(.*?)</title>', entry_match.group(1), re.DOTALL)
+                        api_title = re.sub(r'\s+', ' ', title_match.group(1)).strip() if title_match else ""
+                        sim = ReferenceVerifier._title_similarity_match(title, api_title)
+                        if sim["match"]:
+                            verified = await ReferenceVerifier.verify_paper_arxiv(title)
+                            if verified:
+                                return verified, diagnostics
+                        diagnostics.append(ReferenceVerifier._format_similarity_reason("arXiv", {"title": api_title, "score": sim["score"]}))
+                else:
+                    diagnostics.append(f"arXiv: 接口返回 HTTP {resp.status_code}")
+            except Exception as e:
+                diagnostics.append(f"arXiv: 接口调用失败（{str(e)}）")
+
+        return None, diagnostics
+
+    @staticmethod
     async def verify_paper_crossref(title: str, doi: str = "") -> Optional[dict]:
         """通过 CrossRef API 验证论文真实性"""
         if not title or len(title) < 5:
@@ -445,8 +630,7 @@ class ReferenceVerifier:
                 if doi:
                     # Direct DOI lookup
                     resp = await client.get(
-                        f"https://api.crossref.org/works/{doi}",
-                        params={"select": "title,author,DOI,published-print,published-online,container-title"}
+                        f"https://api.crossref.org/works/{doi}"
                     )
                 else:
                     # Search by title
@@ -678,11 +862,11 @@ class ReferenceVerifier:
         if not title or len(title) < 5:
             return None
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             try:
                 # arXiv API uses ATOM XML format
                 query_title = title.replace(' ', '+').replace('&', '%26')
-                url = f"http://export.arxiv.org/api/query?search_query=ti:{query_title}&max_results=1"
+                url = f"https://export.arxiv.org/api/query?search_query=ti:{query_title}&max_results=1"
                 resp = await client.get(url)
 
                 if resp.status_code != 200:

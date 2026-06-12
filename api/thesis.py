@@ -23,6 +23,7 @@ from schemas.thesis import (
     ThesisFullTextSaveRequest,
     ThesisDraftSaveRequest,
     ThesisFullTextRequest,
+    ThesisReferenceSaveRequest,
     ThesisRefineRequest,
     ThesisProjectResponse,
 )
@@ -44,6 +45,89 @@ router = APIRouter(prefix="/api/ai/thesis", tags=["thesis"])
 # Cache for exported documents (project_id -> (buffer, timestamp))
 _export_cache = {}
 _export_cache_ttl = 300  # 5 minutes cache
+
+
+def _reference_failure_reason(title: str, doi: str, diagnostics: List[str]) -> str:
+    title_text = title[:80] + ("..." if len(title) > 80 else "")
+    parts = [f"文献真实性验证未通过。已提取标题：{title_text or '未提取到'}"]
+    parts.append(f"DOI：{doi}" if doi else "DOI：未提取到")
+    if diagnostics:
+        parts.append("验证详情：" + "；".join(diagnostics[:4]))
+    parts.append("可检查文件首页题名/DOI 是否清晰，或勾选跳过验证后手动确认使用。")
+    return "。".join(parts)
+
+
+def _reference_dedup_key(reference: dict) -> str:
+    doi = str(reference.get("doi") or "").strip().lower()
+    if doi:
+        return f"doi:{doi}"
+    title = re.sub(r"\s+", " ", str(reference.get("title") or "").strip().lower())
+    return f"title:{title}"
+
+
+def _reference_authors_text(reference: dict) -> str:
+    authors = reference.get("authors", [])
+    if isinstance(authors, str):
+        return authors
+    if isinstance(authors, list):
+        authors_text = ", ".join(str(author) for author in authors[:3] if author)
+        if len(authors) > 3:
+            authors_text += " et al."
+        return authors_text
+    return ""
+
+
+def _reference_line(index: int, reference: dict) -> str:
+    authors = _reference_authors_text(reference) or "Unknown authors"
+    source = reference.get("source") or reference.get("journal") or ""
+    line = f"{index}. {authors} ({reference.get('year', 'n.d.')}). {reference.get('title', '')}. {source}"
+    if reference.get("doi"):
+        line += f". https://doi.org/{reference['doi']}"
+    return line
+
+
+def _reference_text_excerpt(reference: dict, max_chars: int = 1800) -> str:
+    raw_text = str(reference.get("raw_text") or "").strip()
+    if not raw_text:
+        raw_text = str(reference.get("abstract_preview") or reference.get("abstract") or "").strip()
+    raw_text = re.sub(r"\s+", " ", raw_text)
+    if len(raw_text) <= max_chars:
+        return raw_text
+    head = raw_text[: max_chars // 2].strip()
+    tail = raw_text[-max_chars // 2 :].strip()
+    return f"{head}\n...[中间内容已省略]...\n{tail}"
+
+
+def _uploaded_reference_context(user_refs: List[dict], *, include_excerpt: bool, max_excerpt_chars: int = 1800) -> tuple[str, str]:
+    context = ""
+    bibliography = ""
+    if not user_refs:
+        return context, bibliography
+
+    context = "【用户上传并确认的参考文献】\n"
+    bibliography = "\n【必须在文末参考文献列表中完整包含的用户上传文献】\n"
+    for i, ref in enumerate(user_refs, 1):
+        ref_line = _reference_line(i, ref)
+        context += f"  - {ref_line}\n"
+        bibliography += f"{ref_line}\n"
+        if include_excerpt:
+            excerpt = _reference_text_excerpt(ref, max_chars=max_excerpt_chars)
+            if excerpt:
+                context += f"    可引用正文摘录：{excerpt}\n"
+
+    if include_excerpt:
+        context += (
+            f"\n⚠️ 要求：以上 {len(user_refs)} 篇文献来自用户上传文件。"
+            "引用这些文献时，必须优先依据其“可引用正文摘录”中的真实内容进行概括、比较和论证；"
+            "不得根据题名自行补造实验数据、结论或细节。\n"
+        )
+    else:
+        context += (
+            f"\n⚠️ 要求：以上 {len(user_refs)} 篇文献必须全部在正文中引用并列入文末参考文献列表，"
+            "且不得编造文献中未提供的具体数据或结论。\n"
+        )
+    bibliography += f"\n⚠️ 注意：以上 {len(user_refs)} 篇用户上传文献必须逐条列出，不得遗漏。"
+    return context, bibliography
 
 
 @router.post("/create")
@@ -167,27 +251,18 @@ async def upload_and_verify_references(
                     })
                     continue
 
-                # 验证真实性：依次尝试 CrossRef、Europe PMC、arXiv
-                verified_info = None
-
-                # 如果有 DOI，先用 CrossRef 精确查询
-                if doi:
-                    verified_info = await verifier.verify_paper_crossref(title, doi)
-
-                # CrossRef 按标题搜索（对中文论文使用 query.bibliographic 效果更好）
-                if not verified_info:
-                    verified_info = await verifier.verify_paper_crossref_by_title(title)
-
-                # Europe PMC 搜索
-                if not verified_info:
-                    verified_info = await verifier.verify_paper_europepmc(title)
-
-                # arXiv 搜索
-                if not verified_info:
-                    verified_info = await verifier.verify_paper_arxiv(title)
+                # 验证真实性：依次尝试 CrossRef DOI、CrossRef 标题、Europe PMC、arXiv，
+                # 失败时返回每一关的诊断信息，方便用户判断是文件提取问题还是数据库未收录。
+                verified_info, verification_details = await verifier.verify_paper_with_diagnostics(title, doi)
 
                 if not verified_info:
-                    failed.append({"filename": filename, "reason": f"未能通过 CrossRef/Europe PMC/arXiv 验证论文真实性（标题: {title[:60]}...），已自动忽略"})
+                    failed.append({
+                        "filename": filename,
+                        "reason": _reference_failure_reason(title, doi, verification_details),
+                        "verification_details": verification_details,
+                        "extracted_title": title,
+                        "extracted_doi": doi,
+                    })
                     continue
             else:
                 # Skip verification: just use AI-extracted metadata
@@ -213,6 +288,9 @@ async def upload_and_verify_references(
             verified_info["is_style_example"] = (style_example_idx == idx)
             verified_info["year"] = metadata.get("year", verified_info.get("year", ""))
             verified_info["journal"] = metadata.get("journal", verified_info.get("journal", ""))
+            verified_info["raw_text"] = text
+            verified_info["raw_text_length"] = len(text)
+            verified_info["content_excerpt"] = _reference_text_excerpt({"raw_text": text}, max_chars=1800)
             verified.append(verified_info)
         except Exception as e:
             failed.append({"filename": filename, "reason": f"处理文件时出错: {str(e)}"})
@@ -243,6 +321,12 @@ async def generate_outline(req: ThesisOutlineRequest, db: Session = Depends(get_
     user_refs = req.references or []
     style_example = req.style_example
 
+    if not user_refs and project.reference_files:
+        try:
+            user_refs = json.loads(project.reference_files)
+        except (json.JSONDecodeError, TypeError):
+            user_refs = []
+
     # 保存参考文献信息到项目
     if user_refs:
         project.reference_files = json.dumps(user_refs, ensure_ascii=False)
@@ -250,20 +334,11 @@ async def generate_outline(req: ThesisOutlineRequest, db: Session = Depends(get_
         project.style_example_file = json.dumps(style_example, ensure_ascii=False)
     db.commit()
 
-    user_ref_context = ""
-    user_ref_bibliography = ""
-    if user_refs:
-        user_ref_context = "【用户上传的指定参考文献（已验证真实性或用户强制使用，必须在论文中引用并列入参考文献列表）】\n"
-        for i, ref in enumerate(user_refs, 1):
-            authors_str = ", ".join(ref.get("authors", [])[:3])
-            if len(ref.get("authors", [])) > 3:
-                authors_str += " et al."
-            ref_line = f"{i}. {authors_str} ({ref.get('year', 'n.d.')}). {ref.get('title', '')}. {ref.get('source', '')}"
-            if ref.get("doi"):
-                ref_line += f". https://doi.org/{ref['doi']}"
-            user_ref_context += f"  - {ref_line}\n"
-            user_ref_bibliography += f"{ref_line}\n"
-        user_ref_context += f"\n⚠️ 强制要求：以上 {len(user_refs)} 篇文献是用户指定的参考文献，必须全部在正文中通过文中引用格式（如 (Author et al., Year) 或 [数字]）进行引用，且必须全部出现在文末的参考文献列表中，一篇都不能遗漏。引用时应与正文论述自然结合，不可堆砌。\n"
+    user_ref_context, user_ref_bibliography = _uploaded_reference_context(
+        user_refs,
+        include_excerpt=True,
+        max_excerpt_chars=1000,
+    )
 
     # --- Fetch Real Literature ---
     selected_databases = normalize_literature_databases(db, req.databases, module="writing")
@@ -543,22 +618,11 @@ async def generate_fulltext(req: ThesisFullTextRequest, db: Session = Depends(ge
         except:
             style_example = None
 
-    user_ref_context = ""
-    user_ref_bibliography = ""
-    if user_refs:
-        user_ref_context = "【用户指定必须引用的参考文献（已通过真实性验证或用户强制使用）——这些文献必须在正文中引用，并列入文末参考文献列表】\n"
-        user_ref_bibliography = "\n【必须在文末参考文献列表中完整包含的文献列表（请按以下格式逐条复制，不得遗漏任何一条）】\n"
-        for i, ref in enumerate(user_refs, 1):
-            authors_str = ", ".join(ref.get("authors", [])[:3])
-            if len(ref.get("authors", [])) > 3:
-                authors_str += " et al."
-            ref_line = f"{i}. {authors_str} ({ref.get('year', 'n.d.')}). {ref.get('title', '')}. {ref.get('source', '')}"
-            if ref.get("doi"):
-                ref_line += f". https://doi.org/{ref['doi']}"
-            user_ref_context += f"  - {ref_line}\n"
-            user_ref_bibliography += f"{ref_line}\n"
-        user_ref_context += f"\n⚠️ 核心要求：以上 {len(user_refs)} 篇文献必须在正文中通过文中引用格式（如 (Author et al., Year) 或 [数字]）进行引用，且必须全部出现在文末的参考文献列表中，一篇都不能遗漏。引用时应与正文论述自然结合，不可堆砌。\n"
-        user_ref_bibliography += f"\n⚠️ 注意：以上 {len(user_refs)} 篇文献是用户指定的参考文献，必须在文末参考文献列表中逐条列出，不得修改、不得遗漏。请将它们放在参考文献列表的最前面（编号 1-{len(user_refs)}）。"
+    user_ref_context, user_ref_bibliography = _uploaded_reference_context(
+        user_refs,
+        include_excerpt=True,
+        max_excerpt_chars=2200,
+    )
 
     style_example_context = ""
     if style_example:
@@ -877,13 +941,7 @@ async def generate_fulltext(req: ThesisFullTextRequest, db: Session = Depends(ge
     if user_refs:
         prompt += f"\n\n🔴 最终提醒：在输出论文的最后，你必须提供一个完整的参考文献列表（References）。以下 {len(user_refs)} 篇文献必须一字不差地逐条列在参考文献列表中（可放在其他文献之前），一篇都不能少：\n"
         for i, ref in enumerate(user_refs, 1):
-            authors_str = ", ".join(ref.get("authors", [])[:3])
-            if len(ref.get("authors", [])) > 3:
-                authors_str += " et al."
-            ref_line = f"{i}. {authors_str} ({ref.get('year', 'n.d.')}). {ref.get('title', '')}. {ref.get('source', '')}"
-            if ref.get("doi"):
-                ref_line += f". https://doi.org/{ref['doi']}"
-            prompt += f"{ref_line}\n"
+            prompt += f"{_reference_line(i, ref)}\n"
 
     # 随机化 temperature 以增加生成多样性 (0.7-0.9)
     generation_temperature = round(random.uniform(0.7, 0.9), 1)
@@ -948,13 +1006,7 @@ async def generate_fulltext(req: ThesisFullTextRequest, db: Session = Depends(ge
 
             # 生成用户文献条目
             for i, ref in enumerate(user_refs):
-                authors_str = ", ".join(ref.get("authors", [])[:3])
-                if len(ref.get("authors", [])) > 3:
-                    authors_str += " et al."
-                ref_line = f"{next_num + i}. {authors_str} ({ref.get('year', 'n.d.')}). {ref.get('title', '')}. {ref.get('source', '')}"
-                if ref.get("doi"):
-                    ref_line += f". https://doi.org/{ref['doi']}"
-                user_bib_lines.append(ref_line)
+                user_bib_lines.append(_reference_line(next_num + i, ref))
 
             user_bib_block = "\n".join(user_bib_lines)
 
@@ -965,13 +1017,7 @@ async def generate_fulltext(req: ThesisFullTextRequest, db: Session = Depends(ge
             # 没有参考文献部分，在文末追加
             next_num = 1
             for i, ref in enumerate(user_refs):
-                authors_str = ", ".join(ref.get("authors", [])[:3])
-                if len(ref.get("authors", [])) > 3:
-                    authors_str += " et al."
-                ref_line = f"{next_num + i}. {authors_str} ({ref.get('year', 'n.d.')}). {ref.get('title', '')}. {ref.get('source', '')}"
-                if ref.get("doi"):
-                    ref_line += f". https://doi.org/{ref['doi']}"
-                user_bib_lines.append(ref_line)
+                user_bib_lines.append(_reference_line(next_num + i, ref))
             fulltext += "\n\n# 参考文献\n" + "\n".join(user_bib_lines) + "\n"
 
     # Deduct token quota if using service token
@@ -1080,6 +1126,86 @@ async def get_project_references(
         "style_example": style_example,
         "uploaded_count": len(uploaded_refs),
         "retrieved_count": len(real_citations),
+    }
+
+
+@router.post("/{project_id}/references/uploaded")
+async def save_uploaded_references(
+    project_id: int,
+    req: ThesisReferenceSaveRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[AdminUser] = Depends(get_optional_admin),
+):
+    """Persist user-confirmed references to the thesis project."""
+    token_record = None
+    if not current_user:
+        token_record = await verify_service_access(db, req.token, "ai")
+    else:
+        check_permission(current_user, "ai")
+
+    query = db.query(ThesisProject).filter(ThesisProject.id == project_id)
+    if token_record:
+        query = query.filter(ThesisProject.token_id == token_record.id)
+    elif current_user:
+        if current_user.group and current_user.group.name != "SuperAdmin":
+            query = query.filter(ThesisProject.admin_id == current_user.id)
+
+    project = query.first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    existing_refs = []
+    if project.reference_files:
+        try:
+            existing_refs = json.loads(project.reference_files)
+        except (json.JSONDecodeError, TypeError):
+            existing_refs = []
+
+    if req.replace:
+        merged_refs = [
+            ref for ref in (req.references or [])
+            if isinstance(ref, dict) and _reference_dedup_key(ref) != "title:"
+        ]
+        project.reference_files = json.dumps(merged_refs, ensure_ascii=False)
+        db.commit()
+        return {
+            "project_id": project_id,
+            "saved": merged_refs,
+            "saved_count": len(merged_refs),
+            "added_count": 0,
+        }
+
+    saved_by_key = {
+        _reference_dedup_key(ref): ref
+        for ref in existing_refs
+        if _reference_dedup_key(ref) != "title:"
+    }
+    merged_refs = list(existing_refs)
+    added_count = 0
+
+    for ref in req.references or []:
+        if not isinstance(ref, dict):
+            continue
+        key = _reference_dedup_key(ref)
+        if key == "title:":
+            continue
+        if key in saved_by_key:
+            index = merged_refs.index(saved_by_key[key])
+            merged_refs[index] = {**saved_by_key[key], **ref}
+            saved_by_key[key] = merged_refs[index]
+            continue
+        merged_refs.append(ref)
+        saved_by_key[key] = ref
+        added_count += 1
+
+    project.reference_files = json.dumps(merged_refs, ensure_ascii=False)
+    db.commit()
+
+    return {
+        "project_id": project_id,
+        "saved": merged_refs,
+        "saved_count": len(merged_refs),
+        "added_count": added_count,
     }
 
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, type FC } from 'react';
 import { Result, Button, Space, Typography, message } from 'antd';
-import { ExperimentOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, ExperimentOutlined } from '@ant-design/icons';
 import { useServiceToken } from '../../hooks/useServiceToken';
 import type { ThesisProject, ThesisStep } from '../../types/thesis';
 import { getProjectSteps } from '../../services/thesisApi';
@@ -79,12 +79,18 @@ const AIWritingWorkbench: FC<Props> = ({ projects, selectedProjectId, onProjectS
     onProjectsRefresh(); // reload project list from parent
     onProjectSelect(actualProject);
     setCurrentStep(1);
-    message.success('选题已确认，开始生成提纲');
+    message.success('论文项目已创建，可先补充参考文献后生成提纲');
   };
 
   const handleOutlineConfirmed = (outline: string, steps: ThesisStep[]) => {
     setOutlineCache({ content: outline, steps });
     setCurrentStep(2);
+  };
+
+  const handleBackHome = () => {
+    setCurrentStep(0);
+    setOutlineCache(null);
+    onProjectNew();
   };
 
   const renderStepContent = () => {
@@ -143,6 +149,9 @@ const AIWritingWorkbench: FC<Props> = ({ projects, selectedProjectId, onProjectS
         </Space>
         {currentStep > 0 && (
           <Space>
+            <Button size="small" icon={<ArrowLeftOutlined />} onClick={handleBackHome}>
+              返回首页
+            </Button>
             <Text type="secondary" style={{ fontSize: 12 }}>步骤 {currentStep} / 3：</Text>
             <Text strong style={{ fontSize: 13 }}>{stepLabels[currentStep]}</Text>
           </Space>

@@ -26,3 +26,8 @@ export async function createAndOutline(data: ThesisCreateRequest): Promise<Thesi
   const response = await api.post<ThesisProject>('/api/ai/topic/create-and-outline', data)
   return response.data
 }
+
+export async function createThesisProject(data: ThesisCreateRequest & { topic: string; style?: string }): Promise<ThesisProject> {
+  const response = await api.post<ThesisProject>('/api/ai/thesis/create', data)
+  return response.data
+}
